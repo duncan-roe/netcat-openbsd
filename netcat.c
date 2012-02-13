@@ -129,6 +129,8 @@
 #define CONNECTION_FAILED 1
 #define CONNECTION_TIMEOUT 2
 
+#define UDP_SCAN_TIMEOUT 3			/* Seconds */
+
 /* Command Line Options */
 int	dflag;					/* detached, no stdin */
 int	Fflag;					/* fdpass sock to stdout */
@@ -834,7 +836,7 @@ main(int argc, char *argv[])
 				continue;
 
 			ret = 0;
-			if (vflag || zflag) {
+			if (vflag) {
 				/* For UDP, make sure we are connected. */
 				if (uflag) {
 					if (udptest(s) == -1) {
@@ -1810,15 +1812,20 @@ build_ports(char *p)
 int
 udptest(int s)
 {
-	int i, ret;
+	int i, t;
 
-	for (i = 0; i <= 3; i++) {
-		if (write(s, "X", 1) == 1)
-			ret = 1;
-		else
-			ret = -1;
+	if ((write(s, "X", 1) != 1) ||
+	    ((write(s, "X", 1) != 1) && (errno == ECONNREFUSED)))
+		return -1;
+
+	/* Give the remote host some time to reply. */
+	for (i = 0, t = (timeout == -1) ? UDP_SCAN_TIMEOUT : (timeout / 1000);
+	     i < t; i++) {
+		sleep(1);
+		if ((write(s, "X", 1) != 1) && (errno == ECONNREFUSED))
+			return -1;
 	}
-	return ret;
+	return 1;
 }
 
 void
