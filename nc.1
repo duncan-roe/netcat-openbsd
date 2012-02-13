@@ -33,7 +33,7 @@
 .Nd arbitrary TCP and UDP connections and listens
 .Sh SYNOPSIS
 .Nm nc
-.Op Fl 46CDdFhklNnrStUuvz
+.Op Fl 46CDdFhklNnrStUuvZz
 .Op Fl I Ar length
 .Op Fl i Ar interval
 .Op Fl M Ar ttl
@@ -288,6 +288,8 @@ An IPv6 address can be specified unambiguously by enclosing
 in square brackets.
 A proxy cannot be used with any of the options
 .Fl lsuU .
+.It Fl Z
+DCCP mode.
 .It Fl z
 Only scan for listening daemons, without sending any data to them.
 Cannot be used together with

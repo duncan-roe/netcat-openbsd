@@ -146,6 +146,7 @@ int	rflag;					/* Random ports flag */
 char   *sflag;					/* Source Address */
 int	tflag;					/* Telnet Emulation */
 int	uflag;					/* UDP - Default to TCP */
+int	dccpflag;				/* DCCP - Default to TCP */
 int	vflag;					/* Verbosity */
 int	xflag;					/* Socks proxy */
 int	zflag;					/* Port Scan Flag */
@@ -227,6 +228,7 @@ static struct sockaddr_storage cliaddr, cliaddr_saved;
 static socklen_t clilen, clilen_saved;
 static char *host;
 
+char *proto_name(int uflag, int dccpflag);
 static int connect_with_timeout(int fd, const struct sockaddr *sa,
     socklen_t salen, int ctimeout);
 
@@ -266,7 +268,7 @@ main(int argc, char *argv[])
 # if defined(TLS)
 	    "46C:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:q:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
 # else
-	    "46CDdFhI:i:klM:m:NnO:P:p:q:rSs:T:tUuV:vW:w:X:x:z"))
+	    "46CDdFhI:i:klM:m:NnO:P:p:q:rSs:T:tUuV:vW:w:X:x:Zz"))
 # endif
 	    != -1) {
 		switch (ch) {
@@ -383,6 +385,13 @@ main(int argc, char *argv[])
 		case 'u':
 			uflag = 1;
 			break;
+		case 'Z':
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+			dccpflag = 1;
+# else
+			errx(1, "no DCCP support available");
+# endif
+			break;
 		case 'V':
 # if defined(RT_TABLEID_MAX)
 			rtableid = (int)strtonum(optarg, 0,
@@ -487,6 +496,10 @@ main(int argc, char *argv[])
 
 	/* Cruft to make sure options are clean, and used properly. */
 	if (argc == 1 && family == AF_UNIX) {
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+		if (dccpflag)
+			errx(1, "cannot use -Z and -U");
+# endif
 		host = argv[0];
 	} else if (argc == 1 && lflag) {
 		uport = argv[0];
@@ -588,8 +601,20 @@ main(int argc, char *argv[])
 	if (family != AF_UNIX) {
 		memset(&hints, 0, sizeof(struct addrinfo));
 		hints.ai_family = family;
-		hints.ai_socktype = uflag ? SOCK_DGRAM : SOCK_STREAM;
-		hints.ai_protocol = uflag ? IPPROTO_UDP : IPPROTO_TCP;
+		if (uflag) {
+		    hints.ai_socktype = SOCK_DGRAM;
+		    hints.ai_protocol = IPPROTO_UDP;
+		}
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+		else if (dccpflag) {
+		    hints.ai_socktype = SOCK_DCCP;
+		    hints.ai_protocol = IPPROTO_DCCP;
+		}
+# endif
+		else {
+		    hints.ai_socktype = SOCK_STREAM;
+		    hints.ai_protocol = IPPROTO_TCP;
+		}
 		if (nflag)
 			hints.ai_flags |= AI_NUMERICHOST;
 	}
@@ -597,7 +622,10 @@ main(int argc, char *argv[])
 	if (xflag) {
 		if (uflag)
 			errx(1, "no proxy support for UDP mode");
-
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+		if (dccpflag)
+			errx(1, "no proxy support for DCCP mode");
+# endif
 		if (lflag)
 			errx(1, "no proxy support for listen");
 
@@ -845,13 +873,14 @@ main(int argc, char *argv[])
 					}
 				}
 
+				char *proto = proto_name(uflag, dccpflag);
 				/* Don't look up port if -n. */
 				if (nflag)
 					sv = NULL;
 				else {
 					sv = getservbyport(
 					    ntohs(atoi(portlist[i])),
-					    uflag ? "udp" : "tcp");
+					    proto);
 				}
 
 				fprintf(stderr, "Connection to %s", host);
@@ -865,7 +894,7 @@ main(int argc, char *argv[])
 					fprintf(stderr, " (%s)", ipaddr);
 
 				fprintf(stderr, " %s port [%s/%s] succeeded!\n",
-				    portlist[i], uflag ? "udp" : "tcp",
+				    portlist[i], proto,
 				    sv ? sv->s_name : "*");
 			}
 			if (Fflag)
@@ -1081,6 +1110,24 @@ unix_listen(char *path)
 	return s;
 }
 
+char *proto_name(int uflag, int dccpflag) {
+
+    char *proto = NULL;
+    if (uflag) {
+	proto = "udp";
+    }
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+    else if (dccpflag) {
+	proto = "dccp";
+    }
+# endif
+    else {
+	proto = "tcp";
+    }
+
+    return proto;
+}
+
 /*
  * remote_connect()
  * Returns a socket connected to a remote host. Properly binds to a local
@@ -1116,8 +1163,21 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 # endif
 			memset(&ahints, 0, sizeof(struct addrinfo));
 			ahints.ai_family = res->ai_family;
-			ahints.ai_socktype = uflag ? SOCK_DGRAM : SOCK_STREAM;
-			ahints.ai_protocol = uflag ? IPPROTO_UDP : IPPROTO_TCP;
+			if (uflag) {
+			    ahints.ai_socktype = SOCK_DGRAM;
+			    ahints.ai_protocol = IPPROTO_UDP;
+
+			}
+# if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
+			else if (dccpflag) {
+			    hints.ai_socktype = SOCK_DCCP;
+			    hints.ai_protocol = IPPROTO_DCCP;
+			}
+# endif
+			else {
+			    ahints.ai_socktype = SOCK_STREAM;
+			    ahints.ai_protocol = IPPROTO_TCP;
+			}
 			ahints.ai_flags = AI_PASSIVE;
 			if ((error = getaddrinfo(sflag, pflag, &ahints, &ares)))
 				errx(1, "getaddrinfo: %s", gai_strerror(error));
@@ -1129,6 +1189,7 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 		}
 
 		set_common_sockopts(s, res->ai_family);
+		char *proto = proto_name(uflag, dccpflag);
 
 		if (ipaddr != NULL) {
 			herr = getnameinfo(res->ai_addr, res->ai_addrlen,
@@ -1154,10 +1215,10 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 			if (nflag || ipaddr == NULL ||
 			    (strncmp(host, ipaddr, NI_MAXHOST) == 0))
 				warn("connect to %s port %s (%s) %s", host,
-				    port, uflag ? "udp" : "tcp", p);
+				    port, proto, p);
 			else
 				warn("connect to %s (%s) port %s (%s) %s", host,
-				    ipaddr, port, uflag ? "udp" : "tcp", p);
+				    ipaddr, port, proto, p);
 		}
 
 		save_errno = errno;
@@ -1758,7 +1819,8 @@ build_ports(char *p)
 	int hi, lo, cp;
 	int x = 0;
 
-	sv = getservbyname(p, uflag ? "udp" : "tcp");
+	char *proto = proto_name(uflag, dccpflag);
+	sv = getservbyname(p, proto);
 	if (sv) {
 		if (asprintf(&portlist[0], "%d", ntohs(sv->s_port)) < 0)
 			err(1, "asprintf");
@@ -2141,6 +2203,7 @@ help(void)
 	\t-w timeout	Timeout for connects and final net reads\n\
 	\t-X proto	Proxy protocol: \"4\", \"5\" (SOCKS) or \"connect\"\n\
 	\t-x addr[:port]\tSpecify proxy address and port\n\
+	\t-Z		DCCP mode\n\
 	\t-z		Zero-I/O mode [used for scanning]\n\
 	Port numbers can be individual or ranges: lo-hi [inclusive]\n");
 	exit(0);
@@ -2150,7 +2213,7 @@ void
 usage(int ret)
 {
 	fprintf(stderr,
-	    "usage: nc [-46CDdFhklNnrStUuvz] [-I length] [-i interval] [-M ttl]\n"
+	    "usage: nc [-46CDdFhklNnrStUuvZz] [-I length] [-i interval] [-M ttl]\n"
 	    "\t  [-m minttl] [-O length] [-P proxy_username] [-p source_port]\n"
 	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit] "
 	    "[-w timeout]\n"
