@@ -166,6 +166,8 @@ char	*tls_expecthash;			/* required hash of peer cert */
 char	*tls_ciphers;				/* TLS ciphers */
 char	*tls_protocols;				/* TLS protocols */
 FILE	*Zflag;					/* file to save peer cert */
+# else
+int	Cflag = 0;			/* CRLF line-ending */
 # endif
 
 int recvcount, recvlimit;
@@ -214,7 +216,7 @@ ssize_t fillbuf(int, unsigned char *, size_t *, struct tls *);
 void	tls_setup_client(struct tls *, int, char *);
 struct tls *tls_setup_server(struct tls *, int, char *);
 # else
-ssize_t drainbuf(int, unsigned char *, size_t *, int);
+ssize_t drainbuf(int, unsigned char *, size_t *, int, int);
 ssize_t fillbuf(int, unsigned char *, size_t *, int);
 # endif
 static struct sockaddr_storage cliaddr, cliaddr_saved;
@@ -258,7 +260,7 @@ main(int argc, char *argv[])
 # if defined(TLS)
 	    "46C:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
 # else
-	    "46DdFhI:i:klM:m:NnO:P:p:rSs:T:tUuV:vW:w:X:x:z"))
+	    "46CDdFhI:i:klM:m:NnO:P:p:rSs:T:tUuV:vW:w:X:x:z"))
 # endif
 	    != -1) {
 		switch (ch) {
@@ -287,6 +289,10 @@ main(int argc, char *argv[])
 			break;
 		case 'c':
 			usetls = 1;
+			break;
+# else
+		case 'C':
+			Cflag = 1;
 			break;
 # endif
 		case 'd':
@@ -1341,12 +1347,6 @@ readwrite(int net_fd)
 		    stdinbufpos == 0 && netinbufpos == 0)
 			return;
 
-		/* help says -i is for "wait between lines sent". We read and
-		 * write arbitrary amounts of data, and we don't want to start
-		 * scanning for newlines, so this is as good as it gets */
-		if (iflag)
-			sleep(iflag);
-
 		/* poll */
 		num_fds = poll(pfd, 4, timeout);
 
@@ -1426,7 +1426,7 @@ readwrite(int net_fd)
 				pfd[POLL_NETOUT].events = POLLOUT;
 			else
 # else
-			    &stdinbufpos, 1);
+			    &stdinbufpos, 1, (iflag || Cflag) ? 1 : 0);
 # endif
 			if (ret == -1)
 				pfd[POLL_NETOUT].fd = -1;
@@ -1485,7 +1485,7 @@ readwrite(int net_fd)
 				pfd[POLL_STDOUT].events = POLLOUT;
 			else
 # else
-			    &netinbufpos, 0);
+			    &netinbufpos, 0, 0);
 # endif
 			if (ret == -1)
 				pfd[POLL_STDOUT].fd = -1;
@@ -1512,37 +1512,45 @@ readwrite(int net_fd)
 }
 
 ssize_t
-# if defined(TLS)
-drainbuf(int fd, unsigned char *buf, size_t *bufpos, struct tls *tls)
-# else
-drainbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket)
-# endif
+drainbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket,
+    int oneline)
 {
-	ssize_t n;
+	ssize_t n, r;
 	ssize_t adjust;
+	unsigned char *lf = NULL;
 
-# if defined(TLS)
-	if (tls) {
-		n = tls_write(tls, buf, *bufpos);
-		if (n == -1)
-			errx(1, "tls write failed (%s)", tls_error(tls));
-	} else {
-# endif
+	if (oneline)
+		lf = memchr(buf, '\n', *bufpos);
+	if (lf == NULL) {
+		n = *bufpos;
+		oneline = 0;
+	}
+	else if (Cflag && (lf == buf || buf[lf - buf - 1] != '\r')) {
+		n = lf - buf;
+		oneline = 2;
+	}
+	else
+		n = lf - buf + 1;
+	if (n > 0) {
 		if (is_socket && uflag && kflag)
 			n = sendto(fd, buf, *bufpos, 0,
 			    (struct sockaddr *)&cliaddr, clilen);
 		else
 			n = write(fd, buf, *bufpos);
-		/* don't treat EAGAIN, EINTR as error */
-		if (n == -1 && (errno == EAGAIN || errno == EINTR))
-# if defined(TLS)
-			n = TLS_WANT_POLLOUT;
 	}
-# else
-			n = -2;
-# endif
+	/* don't treat EAGAIN, EINTR as error */
+	if (n == -1 && (errno == EAGAIN || errno == EINTR))
+		n = -2;
+	if (oneline == 2 && n >= 0)
+		n++;
 	if (n <= 0)
 		return n;
+
+	if (oneline == 2 && (r = atomicio(vwrite, fd, "\r\n", 2)) != 2)
+		err(1, "write failed (%zu/2)", r);
+	if (oneline > 0 && iflag)
+		sleep(iflag);
+
 	/* adjust buffer */
 	adjust = *bufpos - n;
 	if (adjust > 0)
@@ -2068,6 +2076,7 @@ help(void)
 	fprintf(stderr, "\tCommand Summary:\n\
 	\t-4		Use IPv4\n\
 	\t-6		Use IPv6\n\
+	\t-C		Send CRLF as line-ending\n\
 	\t-D		Enable the debug socket option\n\
 	\t-d		Detach from stdin\n\
 	\t-F		Pass socket fd\n\
@@ -2105,7 +2114,7 @@ void
 usage(int ret)
 {
 	fprintf(stderr,
-	    "usage: nc [-46DdFhklNnrStUuvz] [-I length] [-i interval] [-M ttl]\n"
+	    "usage: nc [-46CDdFhklNnrStUuvz] [-I length] [-i interval] [-M ttl]\n"
 	    "\t  [-m minttl] [-O length] [-P proxy_username] [-p source_port]\n"
 	    "\t  [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit] "
 	    "[-w timeout]\n"

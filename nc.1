@@ -33,7 +33,7 @@
 .Nd arbitrary TCP and UDP connections and listens
 .Sh SYNOPSIS
 .Nm nc
-.Op Fl 46DdFhklNnrStUuvz
+.Op Fl 46CDdFhklNnrStUuvz
 .Op Fl I Ar length
 .Op Fl i Ar interval
 .Op Fl M Ar ttl
@@ -92,6 +92,11 @@ The options are as follows:
 Use IPv4 addresses only.
 .It Fl 6
 Use IPv6 addresses only.
+.It Fl C
+Send CRLF as line-ending.  Each line feed (LF) character from the input
+data is translated into CR+LF before being written to the socket.  Line
+feed characters that are already preceded with a carriage return (CR)
+are not translated.  Received data is not affected.
 .It Fl D
 Enable debugging on the socket.
 .It Fl d
@@ -376,7 +381,7 @@ More complicated examples can be built up when the user knows the format
 of requests required by the server.
 As another example, an email may be submitted to an SMTP server using:
 .Bd -literal -offset indent
-$ nc localhost 25 \*(Lt\*(Lt EOF
+$ nc [\-C] localhost 25 \*(Lt\*(Lt EOF
 HELO host.example.com
 MAIL FROM:\*(Ltuser@host.example.com\*(Gt
 RCPT TO:\*(Ltuser2@host.example.com\*(Gt
