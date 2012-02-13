@@ -132,6 +132,7 @@
 #define UDP_SCAN_TIMEOUT 3			/* Seconds */
 
 /* Command Line Options */
+int	bflag;					/* Allow Broadcast */
 int	dflag;					/* detached, no stdin */
 int	Fflag;					/* fdpass sock to stdout */
 unsigned int iflag;				/* Interval Flag */
@@ -266,9 +267,9 @@ main(int argc, char *argv[])
 
 	while ((ch = getopt(argc, argv,
 # if defined(TLS)
-	    "46C:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:q:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
+	    "46bC:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:q:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
 # else
-	    "46CDdFhI:i:klM:m:NnO:P:p:q:rSs:T:tUuV:vW:w:X:x:Zz"))
+	    "46bCDdFhI:i:klM:m:NnO:P:p:q:rSs:T:tUuV:vW:w:X:x:Zz"))
 # endif
 	    != -1) {
 		switch (ch) {
@@ -277,6 +278,13 @@ main(int argc, char *argv[])
 			break;
 		case '6':
 			family = AF_INET6;
+			break;
+		case 'b':
+# if defined(SO_BROADCAST)
+			bflag = 1;
+# else
+			errx(1, "no broadcast frame support available");
+# endif
 			break;
 		case 'U':
 			family = AF_UNIX;
@@ -1895,6 +1903,15 @@ set_common_sockopts(int s, int af)
 {
 	int x = 1;
 
+# if defined(SO_BROADCAST)
+	if (bflag) {
+		/* allow datagram sockets to send packets to a broadcast address
+		 * (this option has no effect on stream-oriented sockets) */
+		if (setsockopt(s, SOL_SOCKET, SO_BROADCAST,
+			&x, sizeof(x)) == -1)
+			err(1, NULL);
+	}
+# endif
 # if defined(TCP_MD5SIG)
 	if (Sflag) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_MD5SIG,
@@ -2173,6 +2190,7 @@ help(void)
 	fprintf(stderr, "\tCommand Summary:\n\
 	\t-4		Use IPv4\n\
 	\t-6		Use IPv6\n\
+	\t-b		Allow broadcast\n\
 	\t-C		Send CRLF as line-ending\n\
 	\t-D		Enable the debug socket option\n\
 	\t-d		Detach from stdin\n\
