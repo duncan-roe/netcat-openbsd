@@ -98,6 +98,7 @@
 #include <netdb.h>
 #include <poll.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -231,7 +232,10 @@ struct tls *tls_setup_server(struct tls *, int, char *);
 ssize_t drainbuf(int, unsigned char *, size_t *, int, int);
 ssize_t fillbuf(int, unsigned char *, size_t *, int);
 # endif
-static struct sockaddr_storage cliaddr, cliaddr_saved;
+static union {
+	struct sockaddr_storage storage;
+	struct sockaddr_un forunix;
+} cliaddr, cliaddr_saved;
 static socklen_t clilen, clilen_saved;
 static char *host;
 
@@ -969,6 +973,8 @@ unix_bind(char *path, int flags)
 	    0)) == -1)
 		return -1;
 
+	unlink(path);
+
 	memset(&s_un, 0, sizeof(struct sockaddr_un));
 	s_un.sun_family = AF_UNIX;
 
@@ -1095,8 +1101,10 @@ unix_connect(char *path)
 		if ((s = unix_bind(unix_dg_tmp_socket, SOCK_CLOEXEC)) == -1)
 			return -1;
 	} else {
-		if ((s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == -1)
+		if ((s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == -1) {
+			errx(1, "create unix socket failed");
 			return -1;
+		}
 	}
 
 	memset(&s_un, 0, sizeof(struct sockaddr_un));
@@ -1106,10 +1114,12 @@ unix_connect(char *path)
 	    sizeof(s_un.sun_path)) {
 		close(s);
 		errno = ENAMETOOLONG;
+		warn("unix connect abandoned");
 		return -1;
 	}
 	if (connect(s, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
 		save_errno = errno;
+		warn("unix connect failed");
 		close(s);
 		errno = save_errno;
 		return -1;

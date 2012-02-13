@@ -364,6 +364,54 @@ and which side is being used as a
 The connection may be terminated using an
 .Dv EOF
 .Pq Sq ^D .
+.Pp
+There is no
+.Fl c
+or
+.Fl e
+option in this netcat, but you still can execute a command after connection
+being established by redirecting file descriptors. Be cautious here because
+opening a port and let anyone connected execute arbitrary command on your
+site is DANGEROUS. If you really need to do this, here is an example:
+.Pp
+On
+.Sq server
+side:
+.Pp
+.Dl $ rm -f /tmp/f; mkfifo /tmp/f
+.Dl $ cat /tmp/f | /bin/sh -i 2>&1 | nc -l 127.0.0.1 1234 > /tmp/f
+.Pp
+On
+.Sq client
+side:
+.Pp
+.Dl $ nc host.example.com 1234
+.Dl $ (shell prompt from host.example.com)
+.Pp
+By doing this, you create a fifo at /tmp/f and make nc listen at port 1234
+of address 127.0.0.1 on
+.Sq server
+side, when a
+.Sq client
+establishes a connection successfully to that port, /bin/sh gets executed
+on
+.Sq server
+side and the shell prompt is given to
+.Sq client
+side.
+.Pp
+When connection is terminated,
+.Nm
+quits as well. Use
+.Fl k
+if you want it keep listening, but if the command quits this option won't
+restart it or keep
+.Nm
+running. Also don't forget to remove the file descriptor once you don't need
+it anymore:
+.Pp
+.Dl $ rm -f /tmp/f
+.Pp
 .Sh DATA TRANSFER
 The example in the previous section can be expanded to build a
 basic data transfer model.
@@ -516,6 +564,9 @@ Original implementation by
 .br
 Rewritten with IPv6 support by
 .An Eric Jackson Aq Mt ericj@monkey.org .
+.br
+Modified for Debian port by Aron Xu
+.Aq aron@debian.org .
 .Sh CAVEATS
 UDP port scans using the
 .Fl uz
