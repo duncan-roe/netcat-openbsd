@@ -41,6 +41,7 @@
 .Op Fl O Ar length
 .Op Fl P Ar proxy_username
 .Op Fl p Ar source_port
+.Op Fl q Ar seconds
 .Op Fl s Ar sourceaddr
 .Op Fl T Ar keyword
 .Op Fl V Ar rtable
@@ -167,6 +168,15 @@ Proxy authentication is only supported for HTTP CONNECT proxies at present.
 Specify the source port
 .Nm
 should use, subject to privilege restrictions and availability.
+.It Fl q Ar seconds
+after EOF on stdin, wait the specified number of
+.Ar seconds
+and then quit. If
+.Ar seconds
+is negative, wait forever (default).  Specifying a non-negative
+.Ar seconds
+implies
+.Fl N .
 .It Fl r
 Choose source and/or destination ports randomly
 instead of sequentially within a range or in the order that the system

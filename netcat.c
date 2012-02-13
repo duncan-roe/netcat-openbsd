@@ -139,6 +139,7 @@ int	Nflag;					/* shutdown() network socket */
 int	nflag;					/* Don't do name look up */
 char   *Pflag;					/* Proxy username */
 char   *pflag;					/* Localport flag */
+int    qflag = -1;				/* Quit after some secs */
 int	rflag;					/* Random ports flag */
 char   *sflag;					/* Source Address */
 int	tflag;					/* Telnet Emulation */
@@ -177,6 +178,7 @@ char *portlist[PORT_MAX+1];
 char *unix_dg_tmp_socket;
 int ttl = -1;
 int minttl = -1;
+int ctrld_seen = 0;
 
 void	atelnet(int, unsigned char *, unsigned int);
 int	strtoport(char *portstr, int udp);
@@ -226,6 +228,8 @@ static char *host;
 static int connect_with_timeout(int fd, const struct sockaddr *sa,
     socklen_t salen, int ctimeout);
 
+static void quit();
+
 int
 main(int argc, char *argv[])
 {
@@ -258,9 +262,9 @@ main(int argc, char *argv[])
 
 	while ((ch = getopt(argc, argv,
 # if defined(TLS)
-	    "46C:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
+	    "46C:cDde:FH:hI:i:K:klM:m:NnO:o:P:p:q:R:rSs:T:tUuV:vW:w:X:x:Z:z"))
 # else
-	    "46CDdFhI:i:klM:m:NnO:P:p:rSs:T:tUuV:vW:w:X:x:z"))
+	    "46CDdFhI:i:klM:m:NnO:P:p:q:rSs:T:tUuV:vW:w:X:x:z"))
 # endif
 	    != -1) {
 		switch (ch) {
@@ -351,6 +355,13 @@ main(int argc, char *argv[])
 			break;
 		case 'p':
 			pflag = optarg;
+			break;
+		case 'q':
+			qflag = strtonum(optarg, INT_MIN, INT_MAX, &errstr);
+			if (errstr)
+				errx(1, "quit timer %s: %s", errstr, optarg);
+			if (qflag >= 0)
+				Nflag = 1;
 			break;
 # if defined(TLS)
 		case 'R':
@@ -1337,15 +1348,29 @@ readwrite(int net_fd)
 	while (1) {
 		/* both inputs are gone, buffers are empty, we are done */
 		if (pfd[POLL_STDIN].fd == -1 && pfd[POLL_NETIN].fd == -1 &&
-		    stdinbufpos == 0 && netinbufpos == 0)
-			return;
+		    stdinbufpos == 0 && netinbufpos == 0) {
+			if (qflag <= 0)
+				return;
+			goto delay_exit;
+		}
 		/* both outputs are gone, we can't continue */
-		if (pfd[POLL_NETOUT].fd == -1 && pfd[POLL_STDOUT].fd == -1)
-			return;
-		/* listen and net in gone, queues empty, done */
-		if (lflag && pfd[POLL_NETIN].fd == -1 &&
-		    stdinbufpos == 0 && netinbufpos == 0)
-			return;
+		if (pfd[POLL_NETOUT].fd == -1 && pfd[POLL_STDOUT].fd == -1) {
+			if (qflag <= 0)
+				return;
+			goto delay_exit;
+		}
+		/* listen and net in gone or ^D, queues empty, done */
+		if (((lflag && pfd[POLL_NETIN].fd == -1) || ctrld_seen) &&
+		    stdinbufpos == 0 && netinbufpos == 0) {
+			if (qflag < 0 || !ctrld_seen)
+				return;
+delay_exit:
+			if (qflag == 0)
+				exit(0);
+			close(net_fd);
+			signal(SIGALRM, quit);
+			alarm(qflag);
+		}
 
 		/* poll */
 		num_fds = poll(pfd, 4, timeout);
@@ -1406,8 +1431,11 @@ readwrite(int net_fd)
 # else
 			    &stdinbufpos, 0);
 # endif
-			if (ret == 0 || ret == -1)
+			if (ret == 0 || ret == -1) {
 				pfd[POLL_STDIN].fd = -1;
+				if (ret == 0 && qflag >= 0)
+					ctrld_seen = 1;
+			}
 			/* read something - poll net out */
 			if (stdinbufpos > 0)
 				pfd[POLL_NETOUT].events = POLLOUT;
@@ -2092,6 +2120,7 @@ help(void)
 	\t-O length	TCP send buffer length\n\
 	\t-P proxyuser\tUsername for proxy authentication\n\
 	\t-p port\t	Specify local port for remote connects\n\
+	\t-q secs\t	quit after EOF on stdin and delay of secs\n\
 	\t-r		Randomize remote ports\n\
 	\t-S		Enable the TCP MD5 signature option\n\
 	\t-s sourceaddr	Local source address\n\
@@ -2116,10 +2145,19 @@ usage(int ret)
 	fprintf(stderr,
 	    "usage: nc [-46CDdFhklNnrStUuvz] [-I length] [-i interval] [-M ttl]\n"
 	    "\t  [-m minttl] [-O length] [-P proxy_username] [-p source_port]\n"
-	    "\t  [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit] "
+	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit] "
 	    "[-w timeout]\n"
 	    "\t  [-X proxy_protocol] [-x proxy_address[:port]] "
 	    "\t  [destination] [port]\n");
 	if (ret)
 		exit(1);
+}
+
+/*
+ * quit()
+ * handler for a "-q" timeout (exit 0 instead of 1)
+ */
+static void quit()
+{
+	exit(0);
 }
