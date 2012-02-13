@@ -213,8 +213,6 @@ Proxy authentication is only supported for HTTP CONNECT proxies at present.
 Specify the source port
 .Nm
 should use, subject to privilege restrictions and availability.
-Cannot be used together with
-.Fl l .
 .It Fl R Ar CAfile
 Load the root CA bundle for TLS certificate verification from
 .Ar CAfile ,
@@ -273,6 +271,7 @@ For the IPv4 TOS/IPv6 traffic class value,
 may be one of
 .Cm critical ,
 .Cm inetcontrol ,
+.Cm lowcost ,
 .Cm lowdelay ,
 .Cm netcontrol ,
 .Cm throughput ,

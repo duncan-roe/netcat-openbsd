@@ -38,7 +38,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <resolv.h>
-#include <readpassphrase.h>
+#include <bsd/string.h>
+#include <bsd/readpassphrase.h>
 #include "atomicio.h"
 
 #define SOCKS_PORT	"1080"
@@ -217,11 +218,11 @@ socks_connect(const char *host, const char *port,
 		buf[2] = SOCKS_NOAUTH;
 		cnt = atomicio(vwrite, proxyfd, buf, 3);
 		if (cnt != 3)
-			err(1, "write failed (%zu/3)", cnt);
+			err(1, "write failed (%zu/3)", (size_t)cnt);
 
 		cnt = atomicio(read, proxyfd, buf, 2);
 		if (cnt != 2)
-			err(1, "read failed (%zu/3)", cnt);
+			err(1, "read failed (%zu/3)", (size_t)cnt);
 
 		if (buf[1] == SOCKS_NOMETHOD)
 			errx(1, "authentication method negotiation failed");
@@ -270,11 +271,11 @@ socks_connect(const char *host, const char *port,
 
 		cnt = atomicio(vwrite, proxyfd, buf, wlen);
 		if (cnt != wlen)
-			err(1, "write failed (%zu/%zu)", cnt, wlen);
+			err(1, "write failed (%zu/%zu)", (size_t)cnt, (size_t)wlen);
 
 		cnt = atomicio(read, proxyfd, buf, 4);
 		if (cnt != 4)
-			err(1, "read failed (%zu/4)", cnt);
+			err(1, "read failed (%zu/4)", (size_t)cnt);
 		if (buf[1] != 0) {
 			errx(1, "connection failed, SOCKSv5 error: %s",
 			    socks5_strerror(buf[1]));
@@ -283,12 +284,12 @@ socks_connect(const char *host, const char *port,
 		case SOCKS_IPV4:
 			cnt = atomicio(read, proxyfd, buf + 4, 6);
 			if (cnt != 6)
-				err(1, "read failed (%zu/6)", cnt);
+				err(1, "read failed (%zu/6)", (size_t)cnt);
 			break;
 		case SOCKS_IPV6:
 			cnt = atomicio(read, proxyfd, buf + 4, 18);
 			if (cnt != 18)
-				err(1, "read failed (%zu/18)", cnt);
+				err(1, "read failed (%zu/18)", (size_t)cnt);
 			break;
 		default:
 			errx(1, "connection failed, unsupported address type");
@@ -308,11 +309,11 @@ socks_connect(const char *host, const char *port,
 
 		cnt = atomicio(vwrite, proxyfd, buf, wlen);
 		if (cnt != wlen)
-			err(1, "write failed (%zu/%zu)", cnt, wlen);
+			err(1, "write failed (%zu/%zu)", (size_t)cnt, (size_t)wlen);
 
 		cnt = atomicio(read, proxyfd, buf, 8);
 		if (cnt != 8)
-			err(1, "read failed (%zu/8)", cnt);
+			err(1, "read failed (%zu/8)", (size_t)cnt);
 		if (buf[1] != 90) {
 			errx(1, "connection failed, SOCKSv4 error: %s",
 			    socks4_strerror(buf[1]));
@@ -326,21 +327,21 @@ socks_connect(const char *host, const char *port,
 
 		/* Try to be sane about numeric IPv6 addresses */
 		if (strchr(host, ':') != NULL) {
-			r = snprintf(buf, sizeof(buf),
+			r = snprintf((char*)buf, sizeof(buf),
 			    "CONNECT [%s]:%d HTTP/1.0\r\n",
 			    host, ntohs(serverport));
 		} else {
-			r = snprintf(buf, sizeof(buf),
+			r = snprintf((char*)buf, sizeof(buf),
 			    "CONNECT %s:%d HTTP/1.0\r\n",
 			    host, ntohs(serverport));
 		}
 		if (r < 0 || (size_t)r >= sizeof(buf))
 			errx(1, "hostname too long");
-		r = strlen(buf);
+		r = strlen((char*)buf);
 
 		cnt = atomicio(vwrite, proxyfd, buf, r);
 		if (cnt != r)
-			err(1, "write failed (%zu/%d)", cnt, r);
+			err(1, "write failed (%zu/%d)", (size_t)cnt, (int)r);
 
 		if (authretry > 1) {
 			char proxypass[256];
@@ -348,20 +349,20 @@ socks_connect(const char *host, const char *port,
 
 			getproxypass(proxyuser, proxyhost,
 			    proxypass, sizeof proxypass);
-			r = snprintf(buf, sizeof(buf), "%s:%s",
+			r = snprintf((char*)buf, sizeof(buf), "%s:%s",
 			    proxyuser, proxypass);
 			explicit_bzero(proxypass, sizeof proxypass);
 			if (r == -1 || (size_t)r >= sizeof(buf) ||
-			    b64_ntop(buf, strlen(buf), resp,
+			    b64_ntop(buf, strlen((char*)buf), resp,
 			    sizeof(resp)) == -1)
 				errx(1, "Proxy username/password too long");
-			r = snprintf(buf, sizeof(buf), "Proxy-Authorization: "
+			r = snprintf((char*)buf, sizeof(buf), "Proxy-Authorization: "
 			    "Basic %s\r\n", resp);
 			if (r < 0 || (size_t)r >= sizeof(buf))
 				errx(1, "Proxy auth response too long");
-			r = strlen(buf);
+			r = strlen((char*)buf);
 			if ((cnt = atomicio(vwrite, proxyfd, buf, r)) != r)
-				err(1, "write failed (%zu/%d)", cnt, r);
+				err(1, "write failed (%zu/%d)", (size_t)cnt, r);
 			explicit_bzero(proxypass, sizeof proxypass);
 			explicit_bzero(buf, sizeof buf);
 		}
@@ -371,23 +372,23 @@ socks_connect(const char *host, const char *port,
 			err(1, "write failed (%zu/2)", cnt);
 
 		/* Read status reply */
-		proxy_read_line(proxyfd, buf, sizeof(buf));
+		proxy_read_line(proxyfd, (char*)buf, sizeof(buf));
 		if (proxyuser != NULL &&
-		    (strncmp(buf, "HTTP/1.0 407 ", 12) == 0 ||
-		    strncmp(buf, "HTTP/1.1 407 ", 12) == 0)) {
+		    (strncmp((char*)buf, "HTTP/1.0 407 ", 12) == 0 ||
+		    strncmp((char*)buf, "HTTP/1.1 407 ", 12) == 0)) {
 			if (authretry > 1) {
 				fprintf(stderr, "Proxy authentication "
 				    "failed\n");
 			}
 			close(proxyfd);
 			goto again;
-		} else if (strncmp(buf, "HTTP/1.0 200 ", 12) != 0 &&
-		    strncmp(buf, "HTTP/1.1 200 ", 12) != 0)
+		} else if (strncmp((char*)buf, "HTTP/1.0 200 ", 12) != 0 &&
+		    strncmp((char*)buf, "HTTP/1.1 200 ", 12) != 0)
 			errx(1, "Proxy error: \"%s\"", buf);
 
 		/* Headers continue until we hit an empty line */
 		for (r = 0; r < HTTP_MAXHDRS; r++) {
-			proxy_read_line(proxyfd, buf, sizeof(buf));
+			proxy_read_line(proxyfd, (char*)buf, sizeof(buf));
 			if (*buf == '\0')
 				break;
 		}
