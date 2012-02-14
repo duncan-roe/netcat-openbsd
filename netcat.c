@@ -718,7 +718,10 @@ main(int argc, char *argv[])
 				s = unix_bind(host, 0);
 			else
 				s = unix_listen(host);
-		}
+		} else
+			s = local_listen(host, uport, hints);
+		if (s < 0)
+			err(1, NULL);
 
 # if defined(TLS)
 		if (usetls) {
@@ -732,13 +735,6 @@ main(int argc, char *argv[])
 # endif
 		/* Allow only one connection at a time, but stay alive. */
 		for (;;) {
-			if (family != AF_UNIX) {
-				if (s != -1)
-					close(s);
-				s = local_listen(host, uport, hints);
-			}
-			if (s == -1)
-				err(1, NULL);
 			if (uflag) {
 				/* Use recvfrom() initially to wait for a
 				 * caller, whether -k or not */
@@ -815,8 +811,11 @@ main(int argc, char *argv[])
 					err(1, "connect");
 			}
 
-			if (!kflag)
+			if (!kflag) {
+				if (s != -1)
+					close(s);
 				break;
+			}
 		}
 	} else if (family == AF_UNIX) {
 		ret = 0;
