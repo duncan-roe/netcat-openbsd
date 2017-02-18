@@ -46,6 +46,9 @@
 #ifdef __linux__
 # include <linux/in6.h>
 #endif
+#if defined(TCP_MD5SIG_EXT) && defined(TCP_MD5SIG_MAXKEYLEN)
+# include <bsd/readpassphrase.h>
+#endif
 
 #ifndef IPTOS_LOWDELAY
 # define IPTOS_LOWDELAY 0x10
@@ -175,6 +178,9 @@ FILE	*Zflag;					/* file to save peer cert */
 int	Cflag = 0;			/* CRLF line-ending */
 # endif
 
+# if defined(TCP_MD5SIG_EXT) && defined(TCP_MD5SIG_MAXKEYLEN)
+char Sflag_password[TCP_MD5SIG_MAXKEYLEN];
+# endif
 int recvcount, recvlimit;
 int timeout = -1;
 int family = AF_UNSPEC;
@@ -205,7 +211,7 @@ int	udptest(int);
 int	unix_bind(char *, int);
 int	unix_connect(char *);
 int	unix_listen(char *);
-void	set_common_sockopts(int, int);
+void	set_common_sockopts(int, const struct sockaddr *);
 int	process_tos_opt(char *, int *);
 # if defined(TLS)
 int	process_tls_opt(char *, int *);
@@ -461,7 +467,10 @@ main(int argc, char *argv[])
 			break;
 # endif
 		case 'S':
-# if defined(TCP_MD5SIG)
+# if defined(TCP_MD5SIG_EXT) && defined(TCP_MD5SIG_MAXKEYLEN)
+			if (readpassphrase("TCP MD5SIG password: ",
+					   Sflag_password, TCP_MD5SIG_MAXKEYLEN, RPP_REQUIRE_TTY) == NULL)
+				errx(1, "Unable to read TCP MD5SIG password");
 			Sflag = 1;
 # else
 			errx(1, "no TCP MD5 signature support available");
@@ -1195,7 +1204,7 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 			freeaddrinfo(ares);
 		}
 
-		set_common_sockopts(s, res->ai_family);
+		set_common_sockopts(s, res->ai_addr);
 		char *proto = proto_name(uflag, dccpflag);
 
 		if (ipaddr != NULL) {
@@ -1342,7 +1351,7 @@ local_listen(const char *host, const char *port, struct addrinfo hints)
 			err(1, NULL);
 # endif
 
-		set_common_sockopts(s, res->ai_family);
+		set_common_sockopts(s, res->ai_addr);
 
 		if (bind(s, (struct sockaddr *)res->ai_addr,
 		    res->ai_addrlen) == 0)
@@ -1898,9 +1907,10 @@ udptest(int s)
 }
 
 void
-set_common_sockopts(int s, int af)
+set_common_sockopts(int s, const struct sockaddr* sa)
 {
 	int x = 1;
+	int af = sa->sa_family;
 
 # if defined(SO_BROADCAST)
 	if (bflag) {
@@ -1911,10 +1921,18 @@ set_common_sockopts(int s, int af)
 			err(1, NULL);
 	}
 # endif
-# if defined(TCP_MD5SIG)
+# if defined(TCP_MD5SIG_EXT) && defined(TCP_MD5SIG_MAXKEYLEN)
 	if (Sflag) {
-		if (setsockopt(s, IPPROTO_TCP, TCP_MD5SIG,
-			&x, sizeof(x)) == -1)
+		struct tcp_md5sig sig;
+		memset(&sig, 0, sizeof(sig));
+		memcpy(&sig.tcpm_addr, sa, sizeof(struct sockaddr_storage));
+		sig.tcpm_keylen = TCP_MD5SIG_MAXKEYLEN < strlen(Sflag_password)
+			? TCP_MD5SIG_MAXKEYLEN
+			: strlen(Sflag_password);
+		memcpy(sig.tcpm_key, Sflag_password, sig.tcpm_keylen);
+		sig.tcpm_flags = TCP_MD5SIG_FLAG_PREFIX;
+		if (setsockopt(s, IPPROTO_TCP, TCP_MD5SIG_EXT,
+			&sig, sizeof(sig)) == -1)
 			err(1, NULL);
 	}
 # endif
