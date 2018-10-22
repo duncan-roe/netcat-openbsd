@@ -143,8 +143,20 @@ multiple hosts.
 .It Fl l
 Listen for an incoming connection rather than initiating a
 connection to a remote host.
-Cannot be used together with any of the options
-.Fl psxz .
+The
+.Ar destination
+and
+.Ar port
+to listen on can be specified either as non-optional arguments, or with
+options
+.Fl s
+and
+.Fl p
+respectively.
+Cannot be used together with
+.Fl x
+or
+.Fl z .
 Additionally, any timeouts specified with the
 .Fl w
 option are ignored.
@@ -193,8 +205,6 @@ For
 datagram sockets, specifies the local temporary socket file
 to create and use so that datagrams can be received.
 Cannot be used together with
-.Fl l
-or
 .Fl x .
 .It Fl T Ar keyword
 Change the IPv4 TOS/IPv6 traffic class value.

@@ -512,26 +512,39 @@ main(int argc, char *argv[])
 # endif
 
 	/* Cruft to make sure options are clean, and used properly. */
-	if (argc == 1 && family == AF_UNIX) {
+	if (argc == 0 && lflag) {
+		uport = &pflag;
+		host = sflag;
+	} else if (argc == 1 && !pflag &&
+			/* `nc -l 12345` or `nc -U bar` or `nc -uU -s foo bar` */
+			(!sflag || (family == AF_UNIX && uflag && !lflag))) {
+		if (family == AF_UNIX) {
+			host = argv[0];
+		} else if (lflag) {
+			uport = argv;
+		}
+	} else if (argc >= 2) {
+		if (lflag && (pflag || sflag || argc > 2))
+			usage(1); /* conflict */
+		host = argv[0];
+		uport = &argv[1];
+	} else
+		usage(1);
+
+	if (family == AF_UNIX) {
 # if defined(IPPROTO_DCCP) && defined(SOCK_DCCP)
 		if (dccpflag)
 			errx(1, "cannot use -Z and -U");
 # endif
-		host = argv[0];
-	} else if (argc == 1 && lflag) {
-		uport = &argv[0];
-	} else if (argc == 2) {
-		host = argv[0];
-		uport = &argv[1];
-	} else if (!argv[0] && lflag) {
-		if (sflag)
-			errx(1, "cannot use -s and -l");
-		if (pflag)
-			errx(1, "cannot use -p and -l");
-		if (zflag)
-			errx(1, "cannot use -z and -l");
-	} else
-		usage(1);
+		if (uport && *uport)
+			errx(1, "cannot use port with -U");
+		if (!host)
+			errx(1, "missing socket pathname");
+	} else if (!uport || !*uport)
+		errx(1, "missing port number");
+
+	if (lflag && zflag)
+		errx(1, "cannot use -z and -l");
 
 # if defined(TLS)
 	if (usetls) {
