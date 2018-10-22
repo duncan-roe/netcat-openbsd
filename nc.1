@@ -413,15 +413,35 @@ The
 flag can be used to tell
 .Nm
 to report open ports,
-rather than initiate a connection.
+rather than initiate a connection. Usually it's useful to turn on verbose
+output to stderr by use this option in conjunction with
+.Fl v
+option.
+.Pp
 For example:
 .Bd -literal -offset indent
-$ nc -z host.example.com 20-30
+$ nc \-zv host.example.com 20-30
 Connection to host.example.com 22 port [tcp/ssh] succeeded!
 Connection to host.example.com 25 port [tcp/smtp] succeeded!
 .Ed
 .Pp
-The port range was specified to limit the search to ports 20 \- 30.
+The port range was specified to limit the search to ports 20 \- 30, and is
+scanned by increasing order (unless the
+.Fl r
+flag is set).
+.Pp
+You can also specify a list of ports to scan, for example:
+.Bd -literal -offset indent
+$ nc \-zv host.example.com http 20 22-23
+nc: connect to host.example.com 80 (tcp) failed: Connection refused
+nc: connect to host.example.com 20 (tcp) failed: Connection refused
+Connection to host.example.com port [tcp/ssh] succeeded!
+nc: connect to host.example.com 23 (tcp) failed: Connection refused
+.Ed
+.Pp
+The ports are scanned by the order you given (unless the
+.Fl r
+flag is set).
 .Pp
 Alternatively, it might be useful to know which server software
 is running, and which versions.

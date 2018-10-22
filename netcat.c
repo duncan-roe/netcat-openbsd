@@ -192,7 +192,7 @@ int ctrld_seen = 0;
 
 void	atelnet(int, unsigned char *, unsigned int);
 int	strtoport(char *portstr, int udp);
-void	build_ports(char *);
+void	build_ports(char **);
 void	help(void) __attribute__((noreturn));
 int	local_listen(const char *, const char *, struct addrinfo);
 # if defined(TLS)
@@ -245,7 +245,7 @@ int
 main(int argc, char *argv[])
 {
 	int ch, s = -1, ret, socksv;
-	char *uport;
+	char **uport;
 	char ipaddr[NI_MAXHOST];
 	struct addrinfo hints;
 	struct servent *sv;
@@ -519,10 +519,10 @@ main(int argc, char *argv[])
 # endif
 		host = argv[0];
 	} else if (argc == 1 && lflag) {
-		uport = argv[0];
+		uport = &argv[0];
 	} else if (argc == 2) {
 		host = argv[0];
-		uport = argv[1];
+		uport = &argv[1];
 	} else if (!argv[0] && lflag) {
 		if (sflag)
 			errx(1, "cannot use -s and -l");
@@ -728,7 +728,7 @@ main(int argc, char *argv[])
 			else
 				s = unix_listen(host);
 		} else
-			s = local_listen(host, uport, hints);
+			s = local_listen(host, *uport, hints);
 		if (s < 0)
 			err(1, NULL);
 
@@ -1828,57 +1828,61 @@ strtoport(char *portstr, int udp)
  * that we should try to connect to.
  */
 void
-build_ports(char *p)
+build_ports(char **p)
 {
 	struct servent *sv;
 	char *n;
 	int hi, lo, cp;
 	int x = 0;
+	int i;
 
 	char *proto = proto_name(uflag, dccpflag);
-	sv = getservbyname(p, proto);
-	if (sv) {
-		if (asprintf(&portlist[0], "%d", ntohs(sv->s_port)) < 0)
-			err(1, "asprintf");
-	} else if (isdigit((unsigned char)*p) && (n = strchr(p, '-')) != NULL) {
-		*n = '\0';
-		n++;
+	for (i = 0; p[i] != NULL; i++) {
+		sv = getservbyname(p[i], proto);
+		if (sv) {
+			if (asprintf(&portlist[x], "%d", ntohs(sv->s_port)) < 0)
+				err(1, "asprintf");
+			x++;
+		} else if (isdigit((unsigned char)*p[i]) && (n = strchr(p[i], '-')) != NULL) {
+			*n = '\0';
+			n++;
 
-		/* Make sure the ports are in order: lowest->highest. */
-		hi = strtoport(n, uflag);
-		lo = strtoport(p, uflag);
-		if (lo > hi) {
-			cp = hi;
-			hi = lo;
-			lo = cp;
-		}
-
-		/*
-		 * Initialize portlist with a random permutation.  Based on
-		 * Knuth, as in ip_randomid() in sys/netinet/ip_id.c.
-		 */
-		if (rflag) {
-			for (x = 0; x <= hi - lo; x++) {
-				cp = arc4random_uniform(x + 1);
-				portlist[x] = portlist[cp];
-				if (asprintf(&portlist[cp], "%d", x + lo) == -1)
-					err(1, "asprintf");
+			/* Make sure the ports are in order: lowest->highest. */
+			hi = strtoport(n, uflag);
+			lo = strtoport(p[i], uflag);
+			if (lo > hi) {
+				cp = hi;
+				hi = lo;
+				lo = cp;
 			}
-		} else { /* Load ports sequentially. */
+
+			/* Load ports sequentially. */
 			for (cp = lo; cp <= hi; cp++) {
 				if (asprintf(&portlist[x], "%d", cp) == -1)
 					err(1, "asprintf");
 				x++;
 			}
+		} else {
+			hi = strtoport(p[i], uflag);
+			if (asprintf(&portlist[x], "%d", hi) < 0)
+				err(1, "asprintf");
+			x++;
 		}
-	} else {
-		char *tmp;
+	}
 
-		hi = strtoport(p, uflag);
-		if (asprintf(&tmp, "%d", hi) != -1)
-			portlist[0] = tmp;
-		else
-			err(1, NULL);
+	/*
+	 * Initialize portlist with a random permutation using
+	 * Fisher–Yates shuffle.
+	 */
+	if (rflag) {
+		for (i = x-1; i > 0; i--) {
+			cp = arc4random_uniform(i+1);
+			if (cp != i) {
+				n = portlist[i];
+				portlist[i] = portlist[cp];
+				portlist[cp] = n;
+			}
+		}
 	}
 }
 
