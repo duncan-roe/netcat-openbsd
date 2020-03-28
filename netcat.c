@@ -90,6 +90,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <netdb.h>
 #include <poll.h>
@@ -123,6 +124,10 @@
 # define TLS_CCERT	(1 << 3)
 # define TLS_MUSTSTAPLE	(1 << 4)
 #endif
+
+#define CONNECTION_SUCCESS 0
+#define CONNECTION_FAILED 1
+#define CONNECTION_TIMEOUT 2
 
 /* Command Line Options */
 int	dflag;					/* detached, no stdin */
@@ -186,7 +191,6 @@ int	remote_connect(const char *, const char *, struct addrinfo, char *);
 # if defined(TLS)
 int	timeout_tls(int, struct tls *, int (*)(struct tls *));
 # endif
-int	timeout_connect(int, const struct sockaddr *, socklen_t);
 int	socks_connect(const char *, const char *, struct addrinfo,
 	    const char *, const char *, struct addrinfo, int, const char *);
 int	udptest(int);
@@ -216,6 +220,9 @@ ssize_t fillbuf(int, unsigned char *, size_t *, int);
 static struct sockaddr_storage cliaddr, cliaddr_saved;
 static socklen_t clilen, clilen_saved;
 static char *host;
+
+static int connect_with_timeout(int fd, const struct sockaddr *sa,
+    socklen_t salen, int ctimeout);
 
 int
 main(int argc, char *argv[])
@@ -1117,18 +1124,21 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 			}
 		}
 
-		if (timeout_connect(s, res->ai_addr, res->ai_addrlen) == 0)
-			break;
+		if ((error = connect_with_timeout(s, res->ai_addr,
+		    res->ai_addrlen, timeout)) == CONNECTION_SUCCESS)
+			    break;
 
 		if (vflag) {
+			char *p = error == CONNECTION_TIMEOUT ? "timed out" :
+			    "failed";
 			/* only print IP if there is something to report */
 			if (nflag || ipaddr == NULL ||
 			    (strncmp(host, ipaddr, NI_MAXHOST) == 0))
-				warn("connect to %s port %s (%s) failed", host,
-				    port, uflag ? "udp" : "tcp");
+				warn("connect to %s port %s (%s) %s", host,
+				    port, uflag ? "udp" : "tcp", p);
 			else
-				warn("connect to %s (%s) port %s (%s) failed",
-				    host, ipaddr, port, uflag ? "udp" : "tcp");
+				warn("connect to %s (%s) port %s (%s) %s", host,
+				    ipaddr, port, uflag ? "udp" : "tcp", p);
 		}
 
 		save_errno = errno;
@@ -1142,32 +1152,67 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 	return s;
 }
 
-int
-timeout_connect(int s, const struct sockaddr *name, socklen_t namelen)
+static int connect_with_timeout(int fd, const struct sockaddr *sa,
+				socklen_t salen, int ctimeout)
 {
-	struct pollfd pfd;
-	socklen_t optlen;
-	int optval;
-	int ret;
+	int err;
+	struct timeval tv, *tvp = NULL;
+	fd_set connect_fdset;
+	socklen_t len;
+	int orig_flags;
 
-	if ((ret = connect(s, name, namelen)) != 0 && errno == EINPROGRESS) {
-		pfd.fd = s;
-		pfd.events = POLLOUT;
-		if ((ret = poll(&pfd, 1, timeout)) == 1) {
-			optlen = sizeof(optval);
-			if ((ret = getsockopt(s, SOL_SOCKET, SO_ERROR,
-			    &optval, &optlen)) == 0) {
-				errno = optval;
-				ret = optval == 0 ? 0 : -1;
-			}
-		} else if (ret == 0) {
-			errno = ETIMEDOUT;
-			ret = -1;
-		} else
-			err(1, "poll failed");
+	orig_flags = fcntl(fd, F_GETFL, 0);
+	if (fcntl(fd, F_SETFL, orig_flags | O_NONBLOCK) < 0 ) {
+		warn("can't set O_NONBLOCK - timeout not available");
+		if (connect(fd, sa, salen) == 0)
+			return CONNECTION_SUCCESS;
+		else
+			return CONNECTION_FAILED;
 	}
 
-	return ret;
+	/* set connect timeout */
+	if (ctimeout > 0) {
+		tv.tv_sec = (time_t)ctimeout/1000;
+		tv.tv_usec = 0;
+		tvp = &tv;
+	}
+
+	/* attempt the connection */
+	err = connect(fd, sa, salen);
+	if (err != 0 && errno == EINPROGRESS) {
+		/* connection is proceeding
+		 * it is complete (or failed) when select returns */
+
+		/* initialize connect_fdset */
+		FD_ZERO(&connect_fdset);
+		FD_SET(fd, &connect_fdset);
+
+		/* call select */
+		do {
+			err = select(fd + 1, NULL, &connect_fdset,
+				     NULL, tvp);
+		} while (err < 0 && errno == EINTR);
+
+		/* select error */
+		if (err < 0)
+			errx(1,"select error: %s", strerror(errno));
+		/* we have reached a timeout */
+		if (err == 0)
+			return CONNECTION_TIMEOUT;
+		/* select returned successfully, but we must test socket
+		 * error for result */
+		len = sizeof(err);
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0)
+			errx(1, "getsockopt error: %s", strerror(errno));
+		/* setup errno according to the result returned by
+		 * getsockopt */
+		if (err != 0)
+			errno = err;
+	}
+
+	/* return aborted if an error occured, and valid otherwise */
+	fcntl(fd, F_SETFL, orig_flags);
+	return (err != 0)? CONNECTION_FAILED : CONNECTION_SUCCESS;
 }
 
 /*
