@@ -210,20 +210,22 @@ ssize_t fillbuf(int, unsigned char *, size_t *, struct tls *);
 void	tls_setup_client(struct tls *, int, char *);
 struct tls *tls_setup_server(struct tls *, int, char *);
 # else
-ssize_t drainbuf(int, unsigned char *, size_t *);
-ssize_t fillbuf(int, unsigned char *, size_t *);
+ssize_t drainbuf(int, unsigned char *, size_t *, int);
+ssize_t fillbuf(int, unsigned char *, size_t *, int);
 # endif
+static struct sockaddr_storage cliaddr, cliaddr_saved;
+static socklen_t clilen, clilen_saved;
+static char *host;
 
 int
 main(int argc, char *argv[])
 {
 	int ch, s = -1, ret, socksv;
-	char *host, *uport;
+	char *uport;
 	char ipaddr[NI_MAXHOST];
 	struct addrinfo hints;
 	struct servent *sv;
 	socklen_t len;
-	struct sockaddr_storage cliaddr;
 	char *proxy = NULL, *proxyport = NULL;
 	const char *errstr;
 	struct addrinfo proxyhints;
@@ -675,41 +677,40 @@ main(int argc, char *argv[])
 			}
 			if (s == -1)
 				err(1, NULL);
-			if (uflag && kflag) {
-				/*
-				 * For UDP and -k, don't connect the socket,
-				 * let it receive datagrams from multiple
-				 * socket pairs.
-				 */
-# if defined(TLS)
-				readwrite(s, NULL);
-# else
-				readwrite(s);
-# endif
-			} else if (uflag && !kflag) {
-				/*
-				 * For UDP and not -k, we will use recvfrom()
-				 * initially to wait for a caller, then use
-				 * the regular functions to talk to the caller.
-				 */
+			if (uflag) {
+				/* Use recvfrom() initially to wait for a
+				 * caller, whether -k or not */
 				int rv;
 				char buf[2048];
-				struct sockaddr_storage z;
 
-				len = sizeof(z);
+				clilen = sizeof(cliaddr);
 				rv = recvfrom(s, buf, sizeof(buf), MSG_PEEK,
-				    (struct sockaddr *)&z, &len);
+				    (struct sockaddr *)&cliaddr, &clilen);
 				if (rv == -1)
 					err(1, "recvfrom");
-
-				rv = connect(s, (struct sockaddr *)&z, len);
-				if (rv == -1)
-					err(1, "connect");
-
-				if (vflag)
+				if (vflag) {
 					report_sock("Connection received from",
-					    (struct sockaddr *)&z, len,
+					    (struct sockaddr *)&cliaddr, clilen,
 					    family == AF_UNIX ? host : NULL);
+					if (kflag) {
+						clilen_saved = clilen;
+						memcpy(&cliaddr_saved, &cliaddr,
+						    clilen);
+					}
+				}
+				if (!kflag)
+				{
+					/*
+					 * For UDP and not -k,
+					 * connect the socket and then use
+					 * the regular functions to talk
+					 * to the caller.
+					 */
+					rv = connect(s,
+					    (struct sockaddr *)&cliaddr,clilen);
+					if (rv == -1)
+						err(1, "connect");
+				}
 
 # if defined(TLS)
 				readwrite(s, NULL);
@@ -1358,7 +1359,7 @@ readwrite(int net_fd)
 				pfd[POLL_STDIN].events = POLLOUT;
 			else
 # else
-			    &stdinbufpos);
+			    &stdinbufpos, 0);
 # endif
 			if (ret == 0 || ret == -1)
 				pfd[POLL_STDIN].fd = -1;
@@ -1380,7 +1381,7 @@ readwrite(int net_fd)
 				pfd[POLL_NETOUT].events = POLLOUT;
 			else
 # else
-			    &stdinbufpos);
+			    &stdinbufpos, 1);
 # endif
 			if (ret == -1)
 				pfd[POLL_NETOUT].fd = -1;
@@ -1402,7 +1403,7 @@ readwrite(int net_fd)
 				pfd[POLL_NETIN].events = POLLOUT;
 			else
 # else
-			    &netinbufpos);
+			    &netinbufpos, 1);
 # endif
 			if (ret == -1)
 				pfd[POLL_NETIN].fd = -1;
@@ -1439,7 +1440,7 @@ readwrite(int net_fd)
 				pfd[POLL_STDOUT].events = POLLOUT;
 			else
 # else
-			    &netinbufpos);
+			    &netinbufpos, 0);
 # endif
 			if (ret == -1)
 				pfd[POLL_STDOUT].fd = -1;
@@ -1469,7 +1470,7 @@ ssize_t
 # if defined(TLS)
 drainbuf(int fd, unsigned char *buf, size_t *bufpos, struct tls *tls)
 # else
-drainbuf(int fd, unsigned char *buf, size_t *bufpos)
+drainbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket)
 # endif
 {
 	ssize_t n;
@@ -1482,7 +1483,11 @@ drainbuf(int fd, unsigned char *buf, size_t *bufpos)
 			errx(1, "tls write failed (%s)", tls_error(tls));
 	} else {
 # endif
-		n = write(fd, buf, *bufpos);
+		if (is_socket && uflag && kflag)
+			n = sendto(fd, buf, *bufpos, 0,
+			    (struct sockaddr *)&cliaddr, clilen);
+		else
+			n = write(fd, buf, *bufpos);
 		/* don't treat EAGAIN, EINTR as error */
 		if (n == -1 && (errno == EAGAIN || errno == EINTR))
 # if defined(TLS)
@@ -1505,7 +1510,7 @@ ssize_t
 # if defined(TLS)
 fillbuf(int fd, unsigned char *buf, size_t *bufpos, struct tls *tls)
 # else
-fillbuf(int fd, unsigned char *buf, size_t *bufpos)
+fillbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket)
 # endif
 {
 	size_t num = BUFSIZE - *bufpos;
@@ -1518,7 +1523,20 @@ fillbuf(int fd, unsigned char *buf, size_t *bufpos)
 			errx(1, "tls read failed (%s)", tls_error(tls));
 	} else {
 # endif
-		n = read(fd, buf + *bufpos, num);
+		if (is_socket && uflag && kflag) {
+			clilen = sizeof cliaddr;
+			n = recvfrom(fd, buf + *bufpos, num, 0,
+			    (struct sockaddr *)&cliaddr, &clilen);
+			if (vflag && n >= 0 && (clilen != clilen_saved ||
+			    memcmp(&cliaddr_saved, &cliaddr, clilen))) {
+				    report_sock("Connection received from",
+					(struct sockaddr *)&cliaddr, clilen,
+					family == AF_UNIX ? host : NULL);
+				    clilen_saved = clilen;
+				    memcpy(&cliaddr_saved, &cliaddr, clilen);
+			    }
+		} else
+			n = read(fd, buf + *bufpos, num);
 		/* don't treat EAGAIN, EINTR as error */
 		if (n == -1 && (errno == EAGAIN || errno == EINTR))
 # if defined(TLS)
