@@ -32,6 +32,8 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -41,6 +43,49 @@
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
 #include <arpa/telnet.h>
+#ifdef __linux__
+# include <linux/in6.h>
+#endif
+
+#ifndef IPTOS_LOWDELAY
+# define IPTOS_LOWDELAY 0x10
+# define IPTOS_THROUGHPUT 0x08
+# define IPTOS_RELIABILITY 0x04
+# define IPTOS_LOWCOST 0x02
+# define IPTOS_MINCOST IPTOS_LOWCOST
+#endif /* IPTOS_LOWDELAY */
+
+# ifndef IPTOS_DSCP_AF11
+# define	IPTOS_DSCP_AF11		0x28
+# define	IPTOS_DSCP_AF12		0x30
+# define	IPTOS_DSCP_AF13		0x38
+# define	IPTOS_DSCP_AF21		0x48
+# define	IPTOS_DSCP_AF22		0x50
+# define	IPTOS_DSCP_AF23		0x58
+# define	IPTOS_DSCP_AF31		0x68
+# define	IPTOS_DSCP_AF32		0x70
+# define	IPTOS_DSCP_AF33		0x78
+# define	IPTOS_DSCP_AF41		0x88
+# define	IPTOS_DSCP_AF42		0x90
+# define	IPTOS_DSCP_AF43		0x98
+# define	IPTOS_DSCP_EF		0xb8
+#endif /* IPTOS_DSCP_AF11 */
+
+#ifndef IPTOS_DSCP_CS0
+# define	IPTOS_DSCP_CS0		0x00
+# define	IPTOS_DSCP_CS1		0x20
+# define	IPTOS_DSCP_CS2		0x40
+# define	IPTOS_DSCP_CS3		0x60
+# define	IPTOS_DSCP_CS4		0x80
+# define	IPTOS_DSCP_CS5		0xa0
+# define	IPTOS_DSCP_CS6		0xc0
+# define	IPTOS_DSCP_CS7		0xe0
+#endif /* IPTOS_DSCP_CS0 */
+
+#ifndef IPTOS_DSCP_EF
+# define	IPTOS_DSCP_EF		0xb8
+#endif /* IPTOS_DSCP_EF */
+
 
 #include <ctype.h>
 #include <err.h>
@@ -56,6 +101,8 @@
 #include <time.h>
 #include <tls.h>
 #include <unistd.h>
+#include <bsd/stdlib.h>
+#include <bsd/string.h>
 
 #include "atomicio.h"
 
@@ -270,10 +317,14 @@ main(int argc, char *argv[])
 			uflag = 1;
 			break;
 		case 'V':
+# if defined(RT_TABLEID_MAX)
 			rtableid = (int)strtonum(optarg, 0,
 			    RT_TABLEID_MAX, &errstr);
 			if (errstr)
 				errx(1, "rtable %s: %s", errstr, optarg);
+# else
+			errx(1, "no alternate routing table support available");
+# endif
 			break;
 		case 'v':
 			vflag = 1;
@@ -322,7 +373,11 @@ main(int argc, char *argv[])
 			oflag = optarg;
 			break;
 		case 'S':
+# if defined(TCP_MD5SIG)
 			Sflag = 1;
+# else
+			errx(1, "no TCP MD5 signature support available");
+# endif
 			break;
 		case 'T':
 			errstr = NULL;
@@ -347,9 +402,11 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+# if defined(RT_TABLEID_MAX)
 	if (rtableid >= 0)
 		if (setrtable(rtableid) == -1)
 			err(1, "setrtable");
+# endif
 
 	/* Cruft to make sure options are clean, and used properly. */
 	if (argc == 1 && family == AF_UNIX) {
@@ -359,6 +416,13 @@ main(int argc, char *argv[])
 	} else if (argc == 2) {
 		host = argv[0];
 		uport = argv[1];
+	} else if (!argv[0] && lflag) {
+		if (sflag)
+			errx(1, "cannot use -s and -l");
+		if (pflag)
+			errx(1, "cannot use -p and -l");
+		if (zflag)
+			errx(1, "cannot use -z and -l");
 	} else
 		usage(1);
 
@@ -397,33 +461,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (family == AF_UNIX) {
-		if (pledge("stdio rpath wpath cpath tmppath unix", NULL) == -1)
-			err(1, "pledge");
-	} else if (Fflag && Pflag) {
-		if (pledge("stdio inet dns sendfd tty", NULL) == -1)
-			err(1, "pledge");
-	} else if (Fflag) {
-		if (pledge("stdio inet dns sendfd", NULL) == -1)
-			err(1, "pledge");
-	} else if (Pflag && usetls) {
-		if (pledge("stdio rpath inet dns tty", NULL) == -1)
-			err(1, "pledge");
-	} else if (Pflag) {
-		if (pledge("stdio inet dns tty", NULL) == -1)
-			err(1, "pledge");
-	} else if (usetls) {
-		if (pledge("stdio rpath inet dns", NULL) == -1)
-			err(1, "pledge");
-	} else if (pledge("stdio inet dns", NULL) == -1)
-		err(1, "pledge");
-
-	if (lflag && sflag)
-		errx(1, "cannot use -s and -l");
-	if (lflag && pflag)
-		errx(1, "cannot use -p and -l");
-	if (lflag && zflag)
-		errx(1, "cannot use -z and -l");
 	if (!lflag && kflag)
 		errx(1, "must use -l with -k");
 	if (uflag && usetls)
@@ -458,8 +495,8 @@ main(int argc, char *argv[])
 		} else {
 			strlcpy(unix_dg_tmp_socket_buf, "/tmp/nc.XXXXXXXXXX",
 			    UNIX_DG_TMP_SOCKET_SIZE);
-			if (mktemp(unix_dg_tmp_socket_buf) == NULL)
-				err(1, "mktemp");
+			if (mkstemp(unix_dg_tmp_socket_buf) == -1)
+				err(1, "mkstemp");
 			unix_dg_tmp_socket = unix_dg_tmp_socket_buf;
 		}
 	}
@@ -580,10 +617,6 @@ main(int argc, char *argv[])
 			if (s == -1)
 				err(1, NULL);
 			if (uflag && kflag) {
-				if (family == AF_UNIX) {
-					if (pledge("stdio unix", NULL) == -1)
-						err(1, "pledge");
-				}
 				/*
 				 * For UDP and -k, don't connect the socket,
 				 * let it receive datagrams from multiple
@@ -610,10 +643,6 @@ main(int argc, char *argv[])
 				if (rv == -1)
 					err(1, "connect");
 
-				if (family == AF_UNIX) {
-					if (pledge("stdio unix", NULL) == -1)
-						err(1, "pledge");
-				}
 				if (vflag)
 					report_sock("Connection received from",
 					    (struct sockaddr *)&z, len,
@@ -947,7 +976,11 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
     char *ipaddr)
 {
 	struct addrinfo *res, *res0;
-	int s = -1, error, herr, on = 1, save_errno;
+	int s = -1, error, herr,
+# if defined (SO_BINDANY)
+	    on = 1,
+# endif
+	    save_errno;
 
 	if ((error = getaddrinfo(host, port, &hints, &res0)))
 		errx(1, "getaddrinfo for host \"%s\" port %s: %s", host,
@@ -962,8 +995,10 @@ remote_connect(const char *host, const char *port, struct addrinfo hints,
 		if (sflag || pflag) {
 			struct addrinfo ahints, *ares;
 
+# if defined (SO_BINDANY)
 			/* try SO_BINDANY, but don't insist */
 			setsockopt(s, SOL_SOCKET, SO_BINDANY, &on, sizeof(on));
+# endif
 			memset(&ahints, 0, sizeof(struct addrinfo));
 			ahints.ai_family = res->ai_family;
 			ahints.ai_socktype = uflag ? SOCK_DGRAM : SOCK_STREAM;
@@ -1076,9 +1111,15 @@ local_listen(const char *host, const char *port, struct addrinfo hints)
 		    res->ai_protocol)) == -1)
 			continue;
 
+		ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &x, sizeof(x));
+		if (ret == -1)
+			err(1, NULL);
+
+# if defined(SO_REUSEPORT)
 		ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &x, sizeof(x));
 		if (ret == -1)
 			err(1, NULL);
+# endif
 
 		set_common_sockopts(s, res->ai_family);
 
@@ -1549,11 +1590,13 @@ set_common_sockopts(int s, int af)
 {
 	int x = 1;
 
+# if defined(TCP_MD5SIG)
 	if (Sflag) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_MD5SIG,
 			&x, sizeof(x)) == -1)
 			err(1, NULL);
 	}
+# endif
 	if (Dflag) {
 		if (setsockopt(s, SOL_SOCKET, SO_DEBUG,
 			&x, sizeof(x)) == -1)
@@ -1564,9 +1607,14 @@ set_common_sockopts(int s, int af)
 		    IP_TOS, &Tflag, sizeof(Tflag)) == -1)
 			err(1, "set IP ToS");
 
+#if defined(IPV6_TCLASS)
 		else if (af == AF_INET6 && setsockopt(s, IPPROTO_IPV6,
 		    IPV6_TCLASS, &Tflag, sizeof(Tflag)) == -1)
 			err(1, "set IPv6 traffic class");
+#else
+		else if (af == AF_INET6)
+			errx(1, "can't set IPv6 traffic class (unavailable)");
+#endif
 	}
 	if (Iflag) {
 		if (setsockopt(s, SOL_SOCKET, SO_RCVBUF,
@@ -1584,19 +1632,34 @@ set_common_sockopts(int s, int af)
 		    IP_TTL, &ttl, sizeof(ttl)))
 			err(1, "set IP TTL");
 
+#if defined(IPV6_UNICAST_HOPS)
 		else if (af == AF_INET6 && setsockopt(s, IPPROTO_IPV6,
 		    IPV6_UNICAST_HOPS, &ttl, sizeof(ttl)))
 			err(1, "set IPv6 unicast hops");
+#else
+		else if (af == AF_INET6)
+			errx(1, "can't set IPv6 unicast hops (unavailable)");
+#endif
 	}
 
 	if (minttl != -1) {
+#if defined(IP_MINTTL)
 		if (af == AF_INET && setsockopt(s, IPPROTO_IP,
 		    IP_MINTTL, &minttl, sizeof(minttl)))
 			err(1, "set IP min TTL");
+#else
+		if (af == AF_INET)
+			errx(1, "can't set IP min TTL (unavailable)");
+#endif
 
+#if defined(IPV6_MINHOPCOUNT)
 		else if (af == AF_INET6 && setsockopt(s, IPPROTO_IPV6,
 		    IPV6_MINHOPCOUNT, &minttl, sizeof(minttl)))
 			err(1, "set IPv6 min hop count");
+#else
+		else if (af == AF_INET6)
+			errx(1, "can't set IPv6 min hop count (unavailable)");
+#endif
 	}
 }
 
@@ -1631,6 +1694,7 @@ process_tos_opt(char *s, int *val)
 		{ "cs7",		IPTOS_DSCP_CS7 },
 		{ "ef",			IPTOS_DSCP_EF },
 		{ "inetcontrol",	IPTOS_PREC_INTERNETCONTROL },
+		{ "lowcost",		IPTOS_LOWCOST },
 		{ "lowdelay",		IPTOS_LOWDELAY },
 		{ "netcontrol",		IPTOS_PREC_NETCONTROL },
 		{ "reliability",	IPTOS_RELIABILITY },
@@ -1795,6 +1859,9 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 void
 help(void)
 {
+# if defined(DEBIAN_VERSION)
+	fprintf(stderr, "OpenBSD netcat (Debian patchlevel " DEBIAN_VERSION ")\n");
+# endif
 	usage(0);
 	fprintf(stderr, "\tCommand Summary:\n\
 	\t-4		Use IPv4\n\
@@ -1837,7 +1904,7 @@ help(void)
 	\t-Z		Peer certificate file\n\
 	\t-z		Zero-I/O mode [used for scanning]\n\
 	Port numbers can be individual or ranges: lo-hi [inclusive]\n");
-	exit(1);
+	exit(0);
 }
 
 void
