@@ -2,8 +2,6 @@
 
 PROG=	nc
 SRCS=	netcat.c atomicio.c socks.c
-LDADD+= -ltls -lssl -lcrypto
-DPADD+=  ${LIBTLS} ${LIBSSL} ${LIBCRYPTO}
 
 LIBS=  `pkg-config --libs libbsd` -lresolv
 OBJS=  $(SRCS:.c=.o)
