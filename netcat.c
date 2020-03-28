@@ -615,7 +615,7 @@ main(int argc, char *argv[])
 						err(1, "pledge");
 				}
 				if (vflag)
-					report_sock("Connection received",
+					report_sock("Connection received from",
 					    (struct sockaddr *)&z, len,
 					    family == AF_UNIX ? host : NULL);
 
@@ -632,7 +632,7 @@ main(int argc, char *argv[])
 					err(1, "accept");
 				}
 				if (vflag)
-					report_sock("Connection received",
+					report_sock("Connection received from",
 					    (struct sockaddr *)&cliaddr, len,
 					    family == AF_UNIX ? host : NULL);
 				if ((usetls) &&
@@ -786,7 +786,7 @@ unix_bind(char *path, int flags)
 		return -1;
 	}
 	if (vflag)
-		report_sock("Bound", NULL, 0, path);
+		report_sock("Bound to", NULL, 0, path);
 
 	return s;
 }
@@ -932,7 +932,7 @@ unix_listen(char *path)
 		return -1;
 	}
 	if (vflag)
-		report_sock("Listening", NULL, 0, path);
+		report_sock("Listening on", NULL, 0, path);
 
 	return s;
 }
@@ -1103,7 +1103,7 @@ local_listen(const char *host, const char *port, struct addrinfo hints)
 		len = sizeof(ss);
 		if (getsockname(s, (struct sockaddr *)&ss, &len) == -1)
 			err(1, "getsockname");
-		report_sock(uflag ? "Bound" : "Listening",
+		report_sock(uflag ? "Bound to" : "Listening on",
 		    (struct sockaddr *)&ss, len, NULL);
 	}
 
@@ -1771,7 +1771,7 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 	int flags = NI_NUMERICSERV;
 
 	if (path != NULL) {
-		fprintf(stderr, "%s on %s\n", msg, path);
+		fprintf(stderr, "%s %s\n", msg, path);
 		return;
 	}
 
@@ -1789,7 +1789,7 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 			errx(1, "getnameinfo: %s", gai_strerror(herr));
 	}
 
-	fprintf(stderr, "%s on %s %s\n", msg, host, port);
+	fprintf(stderr, "%s %s %s\n", msg, host, port);
 }
 
 void
