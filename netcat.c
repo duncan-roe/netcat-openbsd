@@ -1196,7 +1196,7 @@ readwrite(int net_fd, struct tls *tls_ctx)
 		    !(pfd[POLL_NETIN].revents & POLLIN))
 			pfd[POLL_NETIN].fd = -1;
 
-		if (pfd[POLL_NETOUT].revents & POLLHUP) {
+		if ((pfd[POLL_NETOUT].revents & POLLHUP) && pfd[POLL_NETOUT].fd != -1) {
 			if (Nflag)
 				shutdown(pfd[POLL_NETOUT].fd, SHUT_WR);
 			pfd[POLL_NETOUT].fd = -1;
@@ -1205,14 +1205,14 @@ readwrite(int net_fd, struct tls *tls_ctx)
 		if (pfd[POLL_STDOUT].revents & POLLHUP)
 			pfd[POLL_STDOUT].fd = -1;
 		/* if no net out, stop watching stdin */
-		if (pfd[POLL_NETOUT].fd == -1)
+		if (pfd[POLL_NETOUT].fd == -1 && pfd[POLL_STDIN].fd != -1)
 			pfd[POLL_STDIN].fd = -1;
 		/* if no stdout, stop watching net in */
-		if (pfd[POLL_STDOUT].fd == -1) {
-			if (pfd[POLL_NETIN].fd != -1)
-				shutdown(pfd[POLL_NETIN].fd, SHUT_RD);
-			pfd[POLL_NETIN].fd = -1;
-		}
+		if (pfd[POLL_STDOUT].fd == -1 &&
+		    pfd[POLL_NETIN].fd != -1) {
+			    shutdown(pfd[POLL_NETIN].fd, SHUT_RD);
+			    pfd[POLL_NETIN].fd = -1;
+		    }
 
 		/* try to read from stdin */
 		if (pfd[POLL_STDIN].revents & POLLIN && stdinbufpos < BUFSIZE) {
@@ -1299,15 +1299,16 @@ readwrite(int net_fd, struct tls *tls_ctx)
 		}
 
 		/* stdin gone and queue empty? */
-		if (pfd[POLL_STDIN].fd == -1 && stdinbufpos == 0) {
-			if (pfd[POLL_NETOUT].fd != -1 && Nflag)
-				shutdown(pfd[POLL_NETOUT].fd, SHUT_WR);
+		if (pfd[POLL_STDIN].fd == -1 && stdinbufpos == 0 &&
+		    pfd[POLL_NETOUT].fd != -1) {
+			    if (Nflag)
+				    shutdown(pfd[POLL_NETOUT].fd, SHUT_WR);
 			pfd[POLL_NETOUT].fd = -1;
 		}
 		/* net in gone and queue empty? */
-		if (pfd[POLL_NETIN].fd == -1 && netinbufpos == 0) {
-			pfd[POLL_STDOUT].fd = -1;
-		}
+		if (pfd[POLL_NETIN].fd == -1 && netinbufpos == 0 &&
+		    pfd[POLL_STDOUT].fd != -1)
+			    pfd[POLL_STDOUT].fd = -1;
 	}
 }
 
