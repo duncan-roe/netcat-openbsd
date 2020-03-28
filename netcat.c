@@ -1715,11 +1715,16 @@ strtoport(char *portstr, int udp)
 void
 build_ports(char *p)
 {
+	struct servent *sv;
 	char *n;
 	int hi, lo, cp;
 	int x = 0;
 
-	if (isdigit((unsigned char)*p) && (n = strchr(p, '-')) != NULL) {
+	sv = getservbyname(p, uflag ? "udp" : "tcp");
+	if (sv) {
+		if (asprintf(&portlist[0], "%d", ntohs(sv->s_port)) < 0)
+			err(1, "asprintf");
+	} else if (isdigit((unsigned char)*p) && (n = strchr(p, '-')) != NULL) {
 		*n = '\0';
 		n++;
 
