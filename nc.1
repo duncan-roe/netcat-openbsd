@@ -33,7 +33,7 @@
 .Nd arbitrary TCP and UDP connections and listens
 .Sh SYNOPSIS
 .Nm nc
-.Op Fl 46CDdFhklNnrStUuvZz
+.Op Fl 46bCDdFhklNnrStUuvZz
 .Op Fl I Ar length
 .Op Fl i Ar interval
 .Op Fl M Ar ttl
@@ -93,6 +93,8 @@ The options are as follows:
 Use IPv4 addresses only.
 .It Fl 6
 Use IPv6 addresses only.
+.It Fl b
+Allow broadcast.
 .It Fl C
 Send CRLF as line-ending.  Each line feed (LF) character from the input
 data is translated into CR+LF before being written to the socket.  Line
