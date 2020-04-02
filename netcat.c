@@ -2277,9 +2277,8 @@ usage(int ret)
 	fprintf(stderr,
 	    "usage: nc [-46CDdFhklNnrStUuvZz] [-I length] [-i interval] [-M ttl]\n"
 	    "\t  [-m minttl] [-O length] [-P proxy_username] [-p source_port]\n"
-	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit] "
-	    "[-w timeout]\n"
-	    "\t  [-X proxy_protocol] [-x proxy_address[:port]] "
+	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit]\n"
+	    "\t  [-w timeout] [-X proxy_protocol] [-x proxy_address[:port]]\n"
 	    "\t  [destination] [port]\n");
 	if (ret)
 		exit(1);
