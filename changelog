@@ -1,0 +1,141 @@
+commit b81812abe0307594583de0985a768f2e8bb4c337
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Fri Apr 3 10:43:36 2020 +1100
+
+    Ensure lines output by nc -h do not exceed 80 chars in length
+
+commit 69fffc50a10b28d19d5652ca6ecb22349a519bc4
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 19:06:52 2012 +0800
+
+    Misc failures and features (Debian patch)
+
+commit 7dd257a132d4d14ea22f8ffdb70d5bb63a25868b
+Author: Guilhem Moulin <guilhem@debian.org>
+Date:   Mon Oct 22 04:50:54 2018 +0200
+
+    Use -s/-p flags to specify listen address (Debian patch)
+    
+    The patch is somewhat modified because of openbsd changes
+    between 1.206 & 1.217.
+    
+    In particular, they removed uport = NULL and host = NULL,
+    so the updated patch does not reinstate them.
+
+commit f596ae156499e9cf7ba85ca796b52590482ca1cd
+Author: Guilhem Moulin <guilhem@debian.org>
+Date:   Mon Oct 22 04:15:52 2018 +0200
+
+    Destination port list (Debian patch)
+
+commit 9f5e6574123b84c3bb30e024fa33e9d158f0331a
+Author: Thomas Habets <habets@google.com>
+Date:   Sat Feb 18 21:07:22 2017 +0000
+
+    Set TCP MD5SIG correctly for client connections (Debian patch)
+
+commit e2c9a92035f06b75f3213776ca39819440080870
+Author: Aron Xu <aron@debian.org>
+Date:   Tue Feb 14 23:02:00 2012 +0800
+
+    Serialized handling multiple clients (Debian patch)
+
+commit 4e8b05eef6cc3368cfb1657c919895216a9be150
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 15:56:51 2012 +0800
+
+    Broadcast support (Debian patch)
+
+commit 5bbafee4b00ffa01b778aca0cb15bf3787911937
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 15:56:51 2012 +0800
+
+    Dccp support (Debian patch)
+
+commit 64ecd1b1631b96b85ea3e08b8d70687511d96d1a
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 15:29:37 2012 +0800
+
+    Udp scan timeout (Debian patch)
+
+commit 98489bbca147fc449ee957a8d33212044dd3fefe
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 15:16:04 2012 +0800
+
+    Quit timer (Debian patch, updated)
+    
+    This is the Debian quit timer patch, but with -q option re-worked.
+    
+    -N only does a shutdown of net out, as it used to.
+    In the case of a tcp -N client and server w/out -k,
+    client ^D causes the server to shut down due to an asymmetry in the code.
+    Server shutdown then causes the client to shut down.
+    This is the only case where -N appears to operate like -q0.
+    
+    Implementation detail:
+    there is a new ctrld_seen flag to explicitly record ^D (or end of file).
+
+commit 97f95cc4c98d46d96146da3d3f6a42529f1b6c20
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 14:57:45 2012 +0800
+
+    Send crlf (Debian patch)
+
+commit 64b7bf789faeb07ccfc3b99fbbe208094d0856b2
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 14:45:08 2012 +0800
+
+    Get sev by name (Debian patch)
+
+commit f257188e08780e5bfaaf8f44c0595f93a4bc769e
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 14:43:56 2012 +0800
+
+    Connect timeout (Debian patch, updated)
+    
+    This is the Debian connect timeout patch to use select's ability to
+    update its timeout arg after EINTR.
+    Connect error reporting is re-worked in line with the OpenBSD update.
+    The no-longer-used timeout_connect() function is removed.
+
+commit f1a896807287a27426db0af11b3c9709e4509bba
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Mar 28 13:40:57 2020 +1100
+
+    Server UDP nc with -k sends message to most recent client
+    
+    (Prior to this, standard input was effectively discarded).
+    
+    -k -l -u -v reports each time a message comes from a different client
+    than the previous message came from.
+
+commit 685dfd344c28911c23f133518bd8614e75e9cf75
+Author: Guilhem Moulin <guilhem@debian.org>
+Date:   Fri Jun 9 13:21:23 2017 +0200
+
+    Build without TLS support (Debian patch)
+
+commit 222f9f85d13177333831d8092cb3bd331d8c2552
+Author: Aron Xu <aron@debian.org>
+Date:   Mon Feb 13 15:59:31 2012 +0800
+
+    Port to linux with libbsd (Debian patch)
+
+commit 42d974bc6596bb64c62802168a92ffdda674dc29
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Mar 28 12:55:19 2020 +1100
+
+    Use correct preposition in verbose reports
+    
+    Rather than reporting everything as "on" report e.g.
+    "Connection received from", "Bound to" and so on.
+
+commit 4daab1efce46a5de823c6d8a0a595e682b7c5590
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Mar 28 12:45:06 2020 +1100
+
+    Only force fd's to -1 once
+    
+    The motivation for this is to make debug logs less confusing.
+    
+    All changed lines have previously demonstrated the problem.
