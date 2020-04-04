@@ -2227,8 +2227,8 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 void
 help(void)
 {
-# if defined(DEBIAN_VERSION)
-	fprintf(stderr, "OpenBSD netcat (Debian patchlevel " DEBIAN_VERSION ")\n");
+# if defined(NETCAT_VERSION)
+	fprintf(stderr, "OpenBSD netcat " NETCAT_VERSION "\n");
 # endif
 	usage(0);
 	fprintf(stderr, "\tCommand Summary:\n\
