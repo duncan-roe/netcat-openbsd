@@ -4,12 +4,6 @@ Date:   Sat Apr 4 15:31:51 2020 +1100
 
     nc -h outputs revision stamp
 
-commit 1b1419c28c78913646cd64f91b05df14caf0edbe
-Author: Duncan Roe <duncan_roe@optusnet.com.au>
-Date:   Fri Apr 3 10:56:30 2020 +1100
-
-    Add changelog
-
 commit b81812abe0307594583de0985a768f2e8bb4c337
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Fri Apr 3 10:43:36 2020 +1100
