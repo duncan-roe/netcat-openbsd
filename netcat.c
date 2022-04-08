@@ -238,6 +238,7 @@ static union {
 } cliaddr, cliaddr_saved;
 static socklen_t clilen, clilen_saved;
 static char *host;
+static int use_sendto_recvfrom = 0;
 
 char *proto_name(int uflag, int dccpflag);
 static int connect_with_timeout(int fd, const struct sockaddr *sa,
@@ -782,7 +783,9 @@ main(int argc, char *argv[])
 						    clilen);
 					}
 				}
-				if (!kflag)
+				if (kflag)
+					use_sendto_recvfrom = 1;
+				else
 				{
 					/*
 					 * For UDP and not -k,
@@ -1556,7 +1559,8 @@ delay_exit:
 				pfd[POLL_NETOUT].events = POLLOUT;
 			else
 # else
-			    &stdinbufpos, 1, (iflag || Cflag) ? 1 : 0);
+			    &stdinbufpos, use_sendto_recvfrom,
+				    (iflag || Cflag) ? 1 : 0);
 # endif
 			if (ret == -1)
 				pfd[POLL_NETOUT].fd = -1;
@@ -1578,7 +1582,7 @@ delay_exit:
 				pfd[POLL_NETIN].events = POLLOUT;
 			else
 # else
-			    &netinbufpos, 1);
+			    &netinbufpos, use_sendto_recvfrom);
 # endif
 			if (ret == -1)
 				pfd[POLL_NETIN].fd = -1;
@@ -1642,7 +1646,7 @@ delay_exit:
 }
 
 ssize_t
-drainbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket,
+drainbuf(int fd, unsigned char *buf, size_t *bufpos, int use_sendto,
     int oneline)
 {
 	ssize_t n, r;
@@ -1662,7 +1666,7 @@ drainbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket,
 	else
 		n = lf - buf + 1;
 	if (n > 0) {
-		if (is_socket && uflag && kflag)
+		if (use_sendto)
 			n = sendto(fd, buf, *bufpos, 0,
 			    (struct sockaddr *)&cliaddr, clilen);
 		else
@@ -1693,7 +1697,7 @@ ssize_t
 # if defined(TLS)
 fillbuf(int fd, unsigned char *buf, size_t *bufpos, struct tls *tls)
 # else
-fillbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket)
+fillbuf(int fd, unsigned char *buf, size_t *bufpos, int use_recvfrom)
 # endif
 {
 	size_t num = BUFSIZE - *bufpos;
@@ -1706,7 +1710,7 @@ fillbuf(int fd, unsigned char *buf, size_t *bufpos, int is_socket)
 			errx(1, "tls read failed (%s)", tls_error(tls));
 	} else {
 # endif
-		if (is_socket && uflag && kflag) {
+		if (use_recvfrom) {
 			clilen = sizeof cliaddr;
 			n = recvfrom(fd, buf + *bufpos, num, 0,
 			    (struct sockaddr *)&cliaddr, &clilen);
