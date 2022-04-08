@@ -776,7 +776,8 @@ main(int argc, char *argv[])
 				if (vflag) {
 					report_sock("Connection received from",
 					    (struct sockaddr *)&cliaddr, clilen,
-					    family == AF_UNIX ? host : NULL);
+					    family == AF_UNIX ?
+					    cliaddr.forunix.sun_path : NULL);
 					if (kflag) {
 						clilen_saved = clilen;
 						memcpy(&cliaddr_saved, &cliaddr,
@@ -1718,7 +1719,8 @@ fillbuf(int fd, unsigned char *buf, size_t *bufpos, int use_recvfrom)
 			    memcmp(&cliaddr_saved, &cliaddr, clilen))) {
 				    report_sock("Connection received from",
 					(struct sockaddr *)&cliaddr, clilen,
-					family == AF_UNIX ? host : NULL);
+					family == AF_UNIX ?
+					cliaddr.forunix.sun_path : NULL);
 				    clilen_saved = clilen;
 				    memcpy(&cliaddr_saved, &cliaddr, clilen);
 			    }
