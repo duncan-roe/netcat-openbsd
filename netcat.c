@@ -275,6 +275,7 @@ main(int argc, char *argv[])
 # endif
 
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGINT, quit);
 
 	while ((ch = getopt(argc, argv,
 # if defined(TLS)
