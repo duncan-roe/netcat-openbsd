@@ -114,7 +114,8 @@
 #include "atomicio.h"
 
 #define PORT_MAX	65535
-#define UNIX_DG_TMP_SOCKET_SIZE	19
+#define UNIX_DG_TMP_SOCKET_STRING	"/tmp/nc.XXXXXXXXXX"
+#define UNIX_DG_TMP_SOCKET_SIZE	sizeof UNIX_DG_TMP_SOCKET_STRING
 
 #define POLL_STDIN	0
 #define POLL_NETOUT	1
@@ -625,7 +626,7 @@ main(int argc, char *argv[])
 		if (sflag) {
 			unix_dg_tmp_socket = sflag;
 		} else {
-			strlcpy(unix_dg_tmp_socket_buf, "/tmp/nc.XXXXXXXXXX",
+			strlcpy(unix_dg_tmp_socket_buf, UNIX_DG_TMP_SOCKET_STRING,
 			    UNIX_DG_TMP_SOCKET_SIZE);
 			if (mkstemp(unix_dg_tmp_socket_buf) == -1)
 				err(1, "mkstemp");
