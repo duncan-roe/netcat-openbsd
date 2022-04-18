@@ -477,7 +477,8 @@ main(int argc, char *argv[])
 		case 'S':
 # if defined(TCP_MD5SIG_EXT) && defined(TCP_MD5SIG_MAXKEYLEN)
 			if (readpassphrase("TCP MD5SIG password: ",
-					   Sflag_password, TCP_MD5SIG_MAXKEYLEN, RPP_REQUIRE_TTY) == NULL)
+					   Sflag_password, TCP_MD5SIG_MAXKEYLEN,
+					   RPP_REQUIRE_TTY) == NULL)
 				errx(1, "Unable to read TCP MD5SIG password");
 			Sflag = 1;
 # else
@@ -524,7 +525,8 @@ main(int argc, char *argv[])
 		uport = &pflag;
 		host = sflag;
 	} else if (argc == 1 && !pflag &&
-			/* `nc -l 12345` or `nc -U bar` or `nc -uU -s foo bar` */
+			/* `nc -l 12345` or `nc -U bar` or `nc -uU -s foo bar`
+			 */
 			(!sflag || (family == AF_UNIX && uflag && !lflag))) {
 		if (family == AF_UNIX) {
 			host = argv[0];
@@ -627,8 +629,9 @@ main(int argc, char *argv[])
 		if (sflag) {
 			unix_dg_tmp_socket = sflag;
 		} else {
-			strlcpy(unix_dg_tmp_socket_buf, UNIX_DG_TMP_SOCKET_STRING,
-			    UNIX_DG_TMP_SOCKET_SIZE);
+			strlcpy(unix_dg_tmp_socket_buf,
+				UNIX_DG_TMP_SOCKET_STRING,
+				UNIX_DG_TMP_SOCKET_SIZE);
 			if (mkstemp(unix_dg_tmp_socket_buf) == -1)
 				err(1, "mkstemp");
 			unix_dg_tmp_socket = unix_dg_tmp_socket_buf;
@@ -713,7 +716,8 @@ main(int argc, char *argv[])
 			errx(1, "%s", tls_config_error(tls_cfg));
 		if (Kflag && tls_config_set_key_file(tls_cfg, Kflag) == -1)
 			errx(1, "%s", tls_config_error(tls_cfg));
-		if (oflag && tls_config_set_ocsp_staple_file(tls_cfg, oflag) == -1)
+		if (oflag && tls_config_set_ocsp_staple_file(tls_cfg, oflag) ==
+		    -1)
 			errx(1, "%s", tls_config_error(tls_cfg));
 		if (tls_config_parse_protocols(&protocols, tls_protocols) == -1)
 			errx(1, "invalid TLS protocols `%s'", tls_protocols);
@@ -827,7 +831,8 @@ main(int argc, char *argv[])
 					    family == AF_UNIX ? host : NULL);
 # if defined(TLS)
 				if ((usetls) &&
-				    (tls_cctx = tls_setup_server(tls_ctx, connfd, host)))
+				    (tls_cctx = tls_setup_server(tls_ctx,
+								 connfd, host)))
 					readwrite(connfd, tls_cctx);
 				if (!usetls)
 					readwrite(connfd, NULL);
@@ -1109,7 +1114,8 @@ unix_connect(char *path)
 		if ((s = unix_bind(unix_dg_tmp_socket, SOCK_CLOEXEC)) == -1)
 			return -1;
 	} else {
-		if ((s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == -1) {
+		if ((s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == 
+		    -1) {
 			errx(1, "create unix socket failed");
 			return -1;
 		}
@@ -1510,7 +1516,8 @@ delay_exit:
 		    !(pfd[POLL_NETIN].revents & POLLIN))
 			pfd[POLL_NETIN].fd = -1;
 
-		if ((pfd[POLL_NETOUT].revents & POLLHUP) && pfd[POLL_NETOUT].fd != -1) {
+		if ((pfd[POLL_NETOUT].revents & POLLHUP) &&
+		    pfd[POLL_NETOUT].fd != -1) {
 			if (Nflag)
 				shutdown(pfd[POLL_NETOUT].fd, SHUT_WR);
 			pfd[POLL_NETOUT].fd = -1;
@@ -1876,7 +1883,8 @@ build_ports(char **p)
 			if (asprintf(&portlist[x], "%d", ntohs(sv->s_port)) < 0)
 				err(1, "asprintf");
 			x++;
-		} else if (isdigit((unsigned char)*p[i]) && (n = strchr(p[i], '-')) != NULL) {
+		} else if (isdigit((unsigned char)*p[i]) &&
+		    (n = strchr(p[i], '-')) != NULL) {
 			*n = '\0';
 			n++;
 
@@ -2194,10 +2202,11 @@ report_tls(struct tls * tls_ctx, char * host)
 	case -1:
 		break;
 	default:
-		fprintf(stderr, "OCSP Stapling:  failure - response_status %d (%s)\n",
-		    tls_peer_ocsp_response_status(tls_ctx),
-		    tls_peer_ocsp_result(tls_ctx) == NULL ?  "" :
-		    tls_peer_ocsp_result(tls_ctx));
+		fprintf(stderr,
+			"OCSP Stapling:  failure - response_status %d (%s)\n",
+			tls_peer_ocsp_response_status(tls_ctx),
+			tls_peer_ocsp_result(tls_ctx) == NULL ?  "" :
+			tls_peer_ocsp_result(tls_ctx));
 		break;
 
 	}
@@ -2285,9 +2294,11 @@ void
 usage(int ret)
 {
 	fprintf(stderr,
-	    "usage: nc [-46CDdFhklNnrStUuvZz] [-I length] [-i interval] [-M ttl]\n"
+	    "usage: nc [-46CDdFhklNnrStUuvZz] [-I length] [-i interval]"
+		"[-M ttl]\n"
 	    "\t  [-m minttl] [-O length] [-P proxy_username] [-p source_port]\n"
-	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable] [-W recvlimit]\n"
+	    "\t  [-q seconds] [-s sourceaddr] [-T keyword] [-V rtable]"
+		"[-W recvlimit]\n"
 	    "\t  [-w timeout] [-X proxy_protocol] [-x proxy_address[:port]]\n"
 	    "\t  [destination] [port]\n");
 	if (ret)
