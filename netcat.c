@@ -240,12 +240,14 @@ static union {
 static socklen_t clilen, clilen_saved;
 static char *host;
 static int use_sendto_recvfrom = 0;
+static char unix_dg_tmp_socket_buf[UNIX_DG_TMP_SOCKET_SIZE];
 
 char *proto_name(int uflag, int dccpflag);
 static int connect_with_timeout(int fd, const struct sockaddr *sa,
     socklen_t salen, int ctimeout);
 
-static void quit();
+static void quit(int signum);
+static void del_tmp_socket(void);
 
 int
 main(int argc, char *argv[])
@@ -259,7 +261,6 @@ main(int argc, char *argv[])
 	char *proxy = NULL, *proxyport = NULL;
 	const char *errstr;
 	struct addrinfo proxyhints;
-	char unix_dg_tmp_socket_buf[UNIX_DG_TMP_SOCKET_SIZE];
 # if defined(TLS)
 	struct tls_config *tls_cfg = NULL;
 	struct tls *tls_ctx = NULL;
@@ -631,6 +632,7 @@ main(int argc, char *argv[])
 			if (mkstemp(unix_dg_tmp_socket_buf) == -1)
 				err(1, "mkstemp");
 			unix_dg_tmp_socket = unix_dg_tmp_socket_buf;
+			atexit(del_tmp_socket);
 		}
 	}
 
@@ -2296,7 +2298,17 @@ usage(int ret)
  * quit()
  * handler for a "-q" timeout (exit 0 instead of 1)
  */
-static void quit()
+static void quit(int signum)
 {
 	exit(0);
+}
+
+/*
+ * del_tmp_socket()
+ * remove socket created in /tmp
+ */
+
+static void del_tmp_socket()
+{
+	unlink(unix_dg_tmp_socket_buf);
 }
