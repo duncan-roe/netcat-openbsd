@@ -247,7 +247,7 @@ static int connect_with_timeout(int fd, const struct sockaddr *sa,
     socklen_t salen, int ctimeout);
 
 static void quit(int signum);
-static void del_tmp_socket(void);
+static void del_unix_socket(void);
 
 int
 main(int argc, char *argv[])
@@ -635,8 +635,8 @@ main(int argc, char *argv[])
 			if (mkstemp(unix_dg_tmp_socket_buf) == -1)
 				err(1, "mkstemp");
 			unix_dg_tmp_socket = unix_dg_tmp_socket_buf;
-			atexit(del_tmp_socket);
 		}
+		atexit(del_unix_socket);
 	}
 
 	/* Initialize addrinfo structure. */
@@ -872,8 +872,6 @@ main(int argc, char *argv[])
 			ret = 1;
 		}
 
-		if (uflag)
-			unlink(unix_dg_tmp_socket);
 		return ret;
 
 	} else {
@@ -2315,11 +2313,11 @@ static void quit(int signum)
 }
 
 /*
- * del_tmp_socket()
+ * del_unix_socket()
  * remove socket created in /tmp
  */
 
-static void del_tmp_socket()
+static void del_unix_socket()
 {
-	unlink(unix_dg_tmp_socket_buf);
+	unlink(unix_dg_tmp_socket);
 }
