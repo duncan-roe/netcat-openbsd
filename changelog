@@ -1,3 +1,92 @@
+commit 0ab8751ac22df156fd8ee657e02384f2b7fa3e38
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Dec 3 17:56:12 2022 +1100
+
+    Remove all code conditionally compiled on ifdef TLS
+
+commit e690256b03389a7ec5216bff916e0f1a6fc24986
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Dec 3 16:54:39 2022 +1100
+
+    Cherry-pick OpenBSD 7.2 updates
+
+commit e2db78d2f1ec864fe004688b668680277bc0d5ee
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Wed Apr 27 11:32:35 2022 +1000
+
+    Delete client AF_UNIX socket on exit whether temporary or not
+
+    This is what the OpenBSD netcat used to do (except ctl-C, which now works)
+
+commit 6daecd2a49ccd93fd6402b40acf4b92e1d1c6ff8
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Mon Apr 18 20:59:05 2022 +1000
+
+    Split all lines >80cc
+
+commit 65e96482d9ec8c5303b544c6c6bfeed71017be7d
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Mon Apr 18 16:37:03 2022 +1000
+
+    Delete temporary AF_UNIX socket on exit
+
+    There was code to delete the AF_UNIX socket of a client whether temporary or not
+    but this relied on readwrite() returning. Some recent enhancements can make
+    readwrite() exit directly e.g. -q0 then ^D, so make sure to at least delete
+    a socket in /tmp. With the signal handler introduced in 3569cd0e, the socket is
+    also deleted on control-C.
+
+    The quit() function had the wrong signature for a signal handler: fix.
+
+commit 06e096c72f5b260e3ca68fbd340227b25c185c74
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Apr 16 17:17:15 2022 +1000
+
+    Eliminate one "magic number"
+
+    Instead of defining UNIX_DG_TMP_SOCKET_SIZE to 19, define the temp string and
+    define UNIX_DG_TMP_SOCKET_SIZE to the size of that string.
+
+commit 3569cd0e9c106907eac250395a88caadc9b720c6
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Apr 16 08:48:51 2022 +1000
+
+    Add signal handler to exit normally on ^C / SIGINT
+
+commit 0c998dba845e64f74aef6a2726123f94eb80ec82
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Fri Apr 8 16:25:59 2022 +1000
+
+    Listener displays AF_UNIX caller names correctly
+
+    (i.e. when verbose is asserted)
+
+commit 31fd7cf7ec8254e18576d33de764797e5b36710e
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Fri Apr 8 16:19:37 2022 +1000
+
+    Code only checks once whether to use sendto / recvfrom
+
+    (i.e. instead of checking on every packet)
+
+commit ed4e3ece430fd11162b7c4ee71ac42b2800e113d
+Author: beck <beck@openbsd.org>
+Date:   Mon Jul 12 15:09:18 2021 +0000
+
+    Change the error reporting pattern throughout the tree when unveil fails to report the path that the failure occured on. Suggested by deraadt@ after some tech discussion.
+
+    Work done and verified by Ashton Fagg <ashton@fagg.id.au>
+
+    ok deraadt@ semarie@ claudio@
+
+commit d25c6b632b04e3774d7f32b0a36a233351b8dec9
+Author: jmc <jmc@openbsd.org>
+Date:   Wed Mar 31 20:41:35 2021 +0000
+
+    one of the examples needs an -N (and explanation); diff from robert scheck
+
+    discussed with and tweaked by sthen
+
 commit b8c68eb8d76a5d482508ccbd4a3b51735db65009
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Apr 4 15:31:51 2020 +1100
@@ -21,10 +110,10 @@ Author: Guilhem Moulin <guilhem@debian.org>
 Date:   Mon Oct 22 04:50:54 2018 +0200
 
     Use -s/-p flags to specify listen address (Debian patch)
-    
+
     The patch is somewhat modified because of openbsd changes
     between 1.206 & 1.217.
-    
+
     In particular, they removed uport = NULL and host = NULL,
     so the updated patch does not reinstate them.
 
@@ -69,15 +158,15 @@ Author: Aron Xu <aron@debian.org>
 Date:   Mon Feb 13 15:16:04 2012 +0800
 
     Quit timer (Debian patch, updated)
-    
+
     This is the Debian quit timer patch, but with -q option re-worked.
-    
+
     -N only does a shutdown of net out, as it used to.
     In the case of a tcp -N client and server w/out -k,
     client ^D causes the server to shut down due to an asymmetry in the code.
     Server shutdown then causes the client to shut down.
     This is the only case where -N appears to operate like -q0.
-    
+
     Implementation detail:
     there is a new ctrld_seen flag to explicitly record ^D (or end of file).
 
@@ -98,7 +187,7 @@ Author: Aron Xu <aron@debian.org>
 Date:   Mon Feb 13 14:43:56 2012 +0800
 
     Connect timeout (Debian patch, updated)
-    
+
     This is the Debian connect timeout patch to use select's ability to
     update its timeout arg after EINTR.
     Connect error reporting is re-worked in line with the OpenBSD update.
@@ -109,9 +198,9 @@ Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Mar 28 13:40:57 2020 +1100
 
     Server UDP nc with -k sends message to most recent client
-    
+
     (Prior to this, standard input was effectively discarded).
-    
+
     -k -l -u -v reports each time a message comes from a different client
     than the previous message came from.
 
@@ -132,7 +221,7 @@ Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Mar 28 12:55:19 2020 +1100
 
     Use correct preposition in verbose reports
-    
+
     Rather than reporting everything as "on" report e.g.
     "Connection received from", "Bound to" and so on.
 
@@ -141,7 +230,7 @@ Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Mar 28 12:45:06 2020 +1100
 
     Only force fd's to -1 once
-    
+
     The motivation for this is to make debug logs less confusing.
-    
+
     All changed lines have previously demonstrated the problem.

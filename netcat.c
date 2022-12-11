@@ -1191,8 +1191,19 @@ delay_exit:
 			ret = drainbuf(pfd[POLL_NETOUT].fd, stdinbuf,
 			    &stdinbufpos, use_sendto_recvfrom,
 				    (iflag || Cflag) ? 1 : 0);
-			if (ret == -1)
-				pfd[POLL_NETOUT].fd = -1;
+			if (ret == -1) {
+				/* Special-case AF_UNIX udp: */
+				/* error means other end has gone. */
+				/* If -l -k, discard stdin and keep going. */
+				/* Otherwise we are done. */
+				if (uflag && family == AF_UNIX) {
+					if (lflag && kflag)
+						ret = stdinbufpos = 0;
+					else
+						exit(0);
+				} else
+					pfd[POLL_NETOUT].fd = -1;
+			}
 			/* buffer empty - remove self from polling */
 			if (stdinbufpos == 0)
 				pfd[POLL_NETOUT].events = 0;
