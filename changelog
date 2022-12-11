@@ -1,3 +1,19 @@
+commit 6c7d785004b243c7d422fbd5428e8971b22952cd
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sun Dec 11 12:58:43 2022 +1100
+
+    Make AF_UNIX UDP sockets behave more like IP ones
+
+    IP client and single-shot server instances have always exited after sending a
+    UDP message to a peer that has disappeared.
+    AF_UNIX instances would just hang around, not reading from STDIN.
+    The difference was that AF_UNIX write() gets an error when peer has gone but IP
+    write() succeeds, with POLLERR showing up in the next poll(), triggering exit.
+    Multi-shot AF_UNIX listeners (-k option) would show data from new clients but
+    couldn't respond because they had also stopped reading STDIN.
+    The single-shotters now exit on network write error while multi-shot server
+    makes it look like error never happened.
+
 commit 0ab8751ac22df156fd8ee657e02384f2b7fa3e38
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Dec 3 17:56:12 2022 +1100
@@ -9,6 +25,8 @@ Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Dec 3 16:54:39 2022 +1100
 
     Cherry-pick OpenBSD 7.2 updates
+
+    The changes to netcat.c were purely whitespace and not adopted.
 
 commit e2db78d2f1ec864fe004688b668680277bc0d5ee
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
