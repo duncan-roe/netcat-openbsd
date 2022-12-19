@@ -1,3 +1,11 @@
+commit d7dacb5533172bb360b2ab6d8ba68905ab482031
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Tue Dec 20 09:50:06 2022 +1100
+
+    Enable exchange of maximum-length UDP packets
+    
+    Increase buffer size to 64K, the maximum length of a UDP message.
+
 commit 6c7d785004b243c7d422fbd5428e8971b22952cd
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sun Dec 11 12:58:43 2022 +1100
