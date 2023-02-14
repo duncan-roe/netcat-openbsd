@@ -1,4 +1,4 @@
-/* $OpenBSD: netcat.c,v 1.218 2021/07/12 15:09:20 beck Exp $ */
+/* $OpenBSD: netcat.c,v 1.219 2022/06/08 20:07:31 tb Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  * Copyright (c) 2015 Bob Beck.  All rights reserved.
@@ -630,7 +630,6 @@ main(int argc, char *argv[])
 		}
 
 		return ret;
-
 	} else {
 		int i = 0;
 
@@ -678,8 +677,8 @@ main(int argc, char *argv[])
 				 * if we aren't connecting thru a proxy and
 				 * there is something to report, print IP
 				 */
-				if (!nflag && !xflag
-				    && (strcmp(host, ipaddr) != 0))
+				if (!nflag && !xflag &&
+				    strcmp(host, ipaddr) != 0)
 					fprintf(stderr, " (%s)", ipaddr);
 
 				fprintf(stderr, " %s port [%s/%s] succeeded!\n",
@@ -778,7 +777,6 @@ unix_connect(char *path)
 		return -1;
 	}
 	return s;
-
 }
 
 /*
@@ -1435,7 +1433,6 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 	}
 }
 
-
 int
 strtoport(char *portstr, int udp)
 {
@@ -1710,12 +1707,12 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 	herr = getnameinfo(sa, salen, host, sizeof(host), port, sizeof(port),
 	    flags);
 	switch (herr) {
-		case 0:
-			break;
-		case EAI_SYSTEM:
-			err(1, "getnameinfo");
-		default:
-			errx(1, "getnameinfo: %s", gai_strerror(herr));
+	case 0:
+		break;
+	case EAI_SYSTEM:
+		err(1, "getnameinfo");
+	default:
+		errx(1, "getnameinfo: %s", gai_strerror(herr));
 	}
 
 	fprintf(stderr, "%s %s %s\n", msg, host, port);
