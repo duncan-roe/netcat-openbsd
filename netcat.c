@@ -1,4 +1,4 @@
-/* $OpenBSD: netcat.c,v 1.219 2022/06/08 20:07:31 tb Exp $ */
+/* $OpenBSD: netcat.c,v 1.220 2022/12/18 12:45:34 tb Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  * Copyright (c) 2015 Bob Beck.  All rights reserved.
@@ -178,6 +178,7 @@ int	remote_connect(const char *, const char *, struct addrinfo, char *);
 int	socks_connect(const char *, const char *, struct addrinfo,
 	    const char *, const char *, struct addrinfo, int, const char *);
 int	udptest(int);
+void	connection_info(const char *, const char *, const char *);
 int	unix_bind(char *, int);
 int	unix_connect(char *);
 int	unix_listen(char *);
@@ -210,7 +211,6 @@ main(int argc, char *argv[])
 	char **uport;
 	char ipaddr[NI_MAXHOST];
 	struct addrinfo hints;
-	struct servent *sv;
 	socklen_t len;
 	char *proxy = NULL, *proxyport = NULL;
 	const char *errstr;
@@ -220,7 +220,6 @@ main(int argc, char *argv[])
 	socksv = 5;
 	host = NULL;
 	uport = NULL;
-	sv = NULL;
 
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGINT, quit);
@@ -661,29 +660,7 @@ main(int argc, char *argv[])
 					}
 				}
 
-				char *proto = proto_name(uflag, dccpflag);
-				/* Don't look up port if -n. */
-				if (nflag)
-					sv = NULL;
-				else {
-					sv = getservbyport(
-					    ntohs(atoi(portlist[i])),
-					    proto);
-				}
-
-				fprintf(stderr, "Connection to %s", host);
-
-				/*
-				 * if we aren't connecting thru a proxy and
-				 * there is something to report, print IP
-				 */
-				if (!nflag && !xflag &&
-				    strcmp(host, ipaddr) != 0)
-					fprintf(stderr, " (%s)", ipaddr);
-
-				fprintf(stderr, " %s port [%s/%s] succeeded!\n",
-				    portlist[i], proto,
-				    sv ? sv->s_name : "*");
+				connection_info(host, portlist[i], ipaddr);
 			}
 			if (Fflag)
 				fdpass(s);
@@ -1540,6 +1517,32 @@ udptest(int s)
 			return -1;
 	}
 	return 1;
+}
+
+void
+connection_info(const char *host, const char *port, const char *ipaddr)
+{
+	struct servent *sv;
+	
+	char *proto = proto_name(uflag, dccpflag);
+	/* Don't look up port if -n. */
+	if (nflag)
+		sv = NULL;
+	else {
+		sv = getservbyport(ntohs(atoi(port)), proto);
+	}
+
+	fprintf(stderr, "Connection to %s", host);
+
+	/*
+	 * if we aren't connecting thru a proxy and
+	 * there is something to report, print IP
+	 */
+	if (!nflag && !xflag && strcmp(host, ipaddr) != 0)
+		fprintf(stderr, " (%s)", ipaddr);
+
+	fprintf(stderr, " %s port [%s/%s] succeeded!\n",
+	    port, proto, sv ? sv->s_name : "*");
 }
 
 void
