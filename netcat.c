@@ -178,10 +178,10 @@ int	remote_connect(const char *, const char *, struct addrinfo, char *);
 int	socks_connect(const char *, const char *, struct addrinfo,
 	    const char *, const char *, struct addrinfo, int, const char *);
 int	udptest(int);
-void	connection_info(const char *, const char *, const char *);
 int	unix_bind(char *, int);
 int	unix_connect(char *);
 int	unix_listen(char *);
+void	connection_info(const char *, const char *, const char *);
 void	set_common_sockopts(int, const struct sockaddr *);
 int	process_tos_opt(char *, int *);
 void	report_sock(const char *, const struct sockaddr *, socklen_t, char *);
