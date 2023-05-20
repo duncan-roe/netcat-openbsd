@@ -32,6 +32,8 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
+#define NETCAT_VERSION "7.2_3B"
+
 #define _GNU_SOURCE
 
 #include <sys/types.h>
@@ -1758,9 +1760,7 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 void
 help(void)
 {
-# if defined(NETCAT_VERSION)
 	fprintf(stderr, "OpenBSD netcat " NETCAT_VERSION "\n");
-# endif
 	usage(0);
 	fprintf(stderr, "\tCommand Summary:\n\
 	\t-4		Use IPv4\n\
