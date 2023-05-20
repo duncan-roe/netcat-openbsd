@@ -32,7 +32,7 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
-#define NETCAT_VERSION "7.2_3B"
+#define NETCAT_VERSION "7.2_3C"
 
 #define _GNU_SOURCE
 
@@ -739,7 +739,8 @@ unix_bind(char *path, int flags)
 	    0)) == -1)
 		return -1;
 
-	unlink(path);
+	if (path[0] != '@')
+		unlink(path);
 
 	if (bind(s, (struct sockaddr *)&s_un, addrlen) == -1) {
 		save_errno = errno;
