@@ -178,6 +178,7 @@ int	remote_connect(const char *, const char *, struct addrinfo, char *);
 int	socks_connect(const char *, const char *, struct addrinfo,
 	    const char *, const char *, struct addrinfo, int, const char *);
 int	udptest(int);
+int	unix_setup_sockaddr(char *, struct sockaddr_un *, int *);
 int	unix_bind(char *, int);
 int	unix_connect(char *);
 int	unix_listen(char *);
@@ -678,6 +679,46 @@ main(int argc, char *argv[])
 	return ret;
 }
 
+int
+unix_setup_sockaddr(char *path, struct sockaddr_un *s_un, int *addrlen)
+{
+	int sun_path_len;
+
+	*addrlen = offsetof(struct sockaddr_un, sun_path);
+	memset(s_un, 0, *addrlen);
+	s_un->sun_family = AF_UNIX;
+
+	if (path[0] == '\0') {
+		/* Always reject the empty path, aka NUL abstract socket on
+		 * Linux (OTOH the *empty* abstract socket is supported and
+		 * specified as @""). */
+		errno = EINVAL;
+		return -1;
+	}
+#ifdef __linux__
+	/* If the unix domain socket path starts with '@',
+	 * treat it as a Linux abstract name. */
+	else if (path[0] == '@') {
+		if ((sun_path_len = strlen(path)) <= sizeof(s_un->sun_path)) {
+			s_un->sun_path[0] = '\0';
+			strncpy(s_un->sun_path+1, path+1, sun_path_len-1);
+			*addrlen += sun_path_len;
+		} else {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+	}
+#endif
+	else if ((sun_path_len = strlcpy(s_un->sun_path, path, sizeof(s_un->sun_path))) <
+	    sizeof(s_un->sun_path))
+		*addrlen += sun_path_len + 1; /* account for trailing '\0' */
+	else {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return 0;
+}
+
 /*
  * unix_bind()
  * Returns a unix socket bound to the given path
@@ -686,7 +727,10 @@ int
 unix_bind(char *path, int flags)
 {
 	struct sockaddr_un s_un;
-	int s, save_errno;
+	int s, save_errno, addrlen;
+
+	if (unix_setup_sockaddr(path, &s_un, &addrlen) == -1)
+		return -1;
 
 	/* Create unix domain socket. */
 	if ((s = socket(AF_UNIX, flags | (uflag ? SOCK_DGRAM : SOCK_STREAM),
@@ -695,17 +739,7 @@ unix_bind(char *path, int flags)
 
 	unlink(path);
 
-	memset(&s_un, 0, sizeof(struct sockaddr_un));
-	s_un.sun_family = AF_UNIX;
-
-	if (strlcpy(s_un.sun_path, path, sizeof(s_un.sun_path)) >=
-	    sizeof(s_un.sun_path)) {
-		close(s);
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	if (bind(s, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
+	if (bind(s, (struct sockaddr *)&s_un, addrlen) == -1) {
 		save_errno = errno;
 		close(s);
 		errno = save_errno;
@@ -726,7 +760,10 @@ int
 unix_connect(char *path)
 {
 	struct sockaddr_un s_un;
-	int s, save_errno;
+	int s, save_errno, addrlen;
+
+	if (unix_setup_sockaddr(path, &s_un, &addrlen) == -1)
+		return -1;
 
 	if (uflag) {
 		if ((s = unix_bind(unix_dg_tmp_socket, SOCK_CLOEXEC)) == -1)
@@ -739,17 +776,7 @@ unix_connect(char *path)
 		}
 	}
 
-	memset(&s_un, 0, sizeof(struct sockaddr_un));
-	s_un.sun_family = AF_UNIX;
-
-	if (strlcpy(s_un.sun_path, path, sizeof(s_un.sun_path)) >=
-	    sizeof(s_un.sun_path)) {
-		close(s);
-		errno = ENAMETOOLONG;
-		warn("unix connect abandoned");
-		return -1;
-	}
-	if (connect(s, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
+	if (connect(s, (struct sockaddr *)&s_un, addrlen) == -1) {
 		save_errno = errno;
 		warn("unix connect failed");
 		close(s);

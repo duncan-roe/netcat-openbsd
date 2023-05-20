@@ -235,6 +235,9 @@ Cannot be used together with
 .Fl F
 or
 .Fl x .
+On Linux, if the name starts with an at symbol (`@') it is read as an abstract
+namespace socket: the leading `@' is replaced with a \fBNUL\fR byte
+before binding or connecting.  For details, see \fBunix\fR(7).
 .It Fl u
 Use UDP instead of TCP.
 Cannot be used together with
