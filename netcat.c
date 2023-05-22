@@ -32,7 +32,7 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
-#define NETCAT_VERSION "7.2_3C"
+#define NETCAT_VERSION "7.2-3E"
 
 #define _GNU_SOURCE
 
@@ -739,7 +739,9 @@ unix_bind(char *path, int flags)
 	    0)) == -1)
 		return -1;
 
+#ifdef __linux__
 	if (path[0] != '@')
+#endif
 		unlink(path);
 
 	if (bind(s, (struct sockaddr *)&s_un, addrlen) == -1) {
@@ -1737,7 +1739,16 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 	int flags = NI_NUMERICSERV;
 
 	if (path != NULL) {
-		fprintf(stderr, "%s %s\n", msg, path);
+#ifdef __linux__
+		if (*path)
+#endif
+			fprintf(stderr, "%s %s\n", msg, path);
+#ifdef __linux__
+		else
+			fprintf(stderr, "%s @%.*s\n", msg, (int)(salen -
+				offsetof(struct sockaddr_un, sun_path) -1),
+				path + 1);
+#endif
 		return;
 	}
 
