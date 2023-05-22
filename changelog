@@ -113,13 +113,14 @@ Date:   Sun Dec 11 12:58:43 2022 +1100
 
     Make AF_UNIX UDP sockets behave more like IP ones
 
-    IP client and single-shot server instances have always exited after sending a
-    UDP message to a peer that has disappeared.
+    IP client and single-shot server instances have always exited after sending
+    a UDP message to a peer that has disappeared.
     AF_UNIX instances would just hang around, not reading from STDIN.
-    The difference was that AF_UNIX write() gets an error when peer has gone but IP
-    write() succeeds, with POLLERR showing up in the next poll(), triggering exit.
-    Multi-shot AF_UNIX listeners (-k option) would show data from new clients but
-    couldn't respond because they had also stopped reading STDIN.
+    The difference was that AF_UNIX write() gets an error when peer has gone but
+    IP write() succeeds, with POLLERR showing up in the next poll(),
+    triggering exit.
+    Multi-shot AF_UNIX listeners (-k option) would show data from new clients
+    but couldn't respond because they had also stopped reading STDIN.
     The single-shotters now exit on network write error while multi-shot server
     makes it look like error never happened.
 
@@ -157,10 +158,11 @@ Date:   Mon Apr 18 16:37:03 2022 +1000
 
     Delete temporary AF_UNIX socket on exit
 
-    There was code to delete the AF_UNIX socket of a client whether temporary or not
-    but this relied on readwrite() returning. Some recent enhancements can make
-    readwrite() exit directly e.g. -q0 then ^D, so make sure to at least delete
-    a socket in /tmp. With the signal handler introduced in 3569cd0e, the socket is
+    There was code to delete the AF_UNIX socket of a client whether temporary or
+    not but this relied on readwrite() returning.
+    Some recent enhancements can make readwrite() exit directly
+    e.g. -q0 then ^D, so make sure to at least delete a socket in /tmp.
+    With the signal handler introduced in 3569cd0e, the socket is
     also deleted on control-C.
 
     The quit() function had the wrong signature for a signal handler: fix.
@@ -171,8 +173,8 @@ Date:   Sat Apr 16 17:17:15 2022 +1000
 
     Eliminate one "magic number"
 
-    Instead of defining UNIX_DG_TMP_SOCKET_SIZE to 19, define the temp string and
-    define UNIX_DG_TMP_SOCKET_SIZE to the size of that string.
+    Instead of defining UNIX_DG_TMP_SOCKET_SIZE to 19, define the temp string
+    and define UNIX_DG_TMP_SOCKET_SIZE to the size of that string.
 
 commit 3569cd0e9c106907eac250395a88caadc9b720c6
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
@@ -200,7 +202,9 @@ commit ed4e3ece430fd11162b7c4ee71ac42b2800e113d
 Author: beck <beck@openbsd.org>
 Date:   Mon Jul 12 15:09:18 2021 +0000
 
-    Change the error reporting pattern throughout the tree when unveil fails to report the path that the failure occured on. Suggested by deraadt@ after some tech discussion.
+    Change the error reporting pattern throughout the tree when unveil fails to
+    report the path that the failure occured on.
+    Suggested by deraadt@ after some tech discussion.
 
     Work done and verified by Ashton Fagg <ashton@fagg.id.au>
 
