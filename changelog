@@ -1,9 +1,110 @@
+commit 365befed5f276325efabed59b64c529a42da4b1b
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Mon May 22 14:16:26 2023 +1000
+
+    Display abstract socket names correctly
+
+    Because names start with NUL, display '@' followed by 2nd name char onwards.
+    Also take care not to display more characters than actual name length.
+    (Required for verbose listener when client has shorter abstract name than
+    previous client).
+
+commit fc9f6378d56640b49dec9d0c4537f5b104c0ed56
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat May 20 15:02:18 2023 +1000
+
+    v7.2_3C: Don't unlink an abstract socket
+
+commit b9f556b74dc6a4c3f8127891c9cc06742d8d7ca0
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat May 20 14:25:06 2023 +1000
+
+    Put netcat version in netcat.c
+
+commit a2476392baf6c4063641ac2cbeb4970e51887a59
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat May 20 13:41:14 2023 +1000
+
+    Incorporate new Debian abstract-unix-domain-socket patch
+
+    Not tested yet and may well clash with local changes
+
+commit 4ff38b09604c66043374a36a1625f9c2de23a6fe
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Fri May 19 17:25:12 2023 +1000
+
+    Re-order a dcl for Debian abstract-unix-domain-socket patch
+
+    So hunk 2 succeeds
+
+commit aa9367531701903b13d80267486dceb8cb1a43ca
+Author: deraadt <deraadt@openbsd.org>
+Date:   Wed Jan 4 12:53:38 2023 +0000
+
+    ugly white space
+
+commit 51da88812757ce71b58e227f8a3da6ce7512ff55
+Author: tb <tb@openbsd.org>
+Date:   Sun Dec 18 12:53:18 2022 +0000
+
+    nc: skip connection info on failed or skipped udptest()
+
+    In udp mode, nc would always print that the connected succeeded
+    independently of whether that was actually the case. Don't do that.
+
+    idea/ok mpf
+
+commit fd97b71cbb91a5031b6f0d431e423ba4b8755ff7
+Author: tb <tb@openbsd.org>
+Date:   Sun Dec 18 12:51:10 2022 +0000
+
+    nc: do not test the connection in non-interactive mode
+
+    The connection test writes four X to the socket, which corrupts data
+    that we may want to pipe into nc. So don't do that if stdin is not a
+    tty but still do it in scan mode, this is needed according to chris.
+
+    based on a diff by and ok mpf
+
+commit 8f4fd9762f28901514fa6390a9510ef4bee21035
+Author: tb <tb@openbsd.org>
+Date:   Sun Dec 18 12:48:28 2022 +0000
+
+    nc: clean up and simplify connection_infO()
+
+    ok mpf as part of a larger diff
+
+commit fce8d76c1bdfe9ef87cde39127403b7a709d64d5
+Author: tb <tb@openbsd.org>
+Date:   Sun Dec 18 12:47:31 2022 +0000
+
+    nc: pass protocol name to connection_info()
+
+    Avoids repeated use of ternary operator on globals.
+
+commit 836e78ae73cc668ca5e5f1ceb5ad23cf9de47762
+Author: tb <tb@openbsd.org>
+Date:   Tue Feb 14 12:28:11 2023 +1100
+
+    nc: factor printing of connection info into a function
+
+    This simply moves a chunk of code in this spaghetti mess into its own
+    function with minimal changes.
+
+    idea from a diff by mpf
+
+commit 599de1f0e665a26b518bff0c05418ab2041da511
+Author: tb <tb@openbsd.org>
+Date:   Tue Feb 14 14:00:04 2023 +1100
+
+    KNF, mostly whitespace - no binary change on amd64
+
 commit d7dacb5533172bb360b2ab6d8ba68905ab482031
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Tue Dec 20 09:50:06 2022 +1100
 
     Enable exchange of maximum-length UDP packets
-    
+
     Increase buffer size to 64K, the maximum length of a UDP message.
 
 commit 6c7d785004b243c7d422fbd5428e8971b22952cd
