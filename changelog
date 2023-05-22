@@ -43,6 +43,9 @@ Date:   Wed Jan 4 12:53:38 2023 +0000
 
     ugly white space
 
+    This brings netcat.c up to CVS revision 1.225
+    (current, as of 2023-05-22).
+
 commit 51da88812757ce71b58e227f8a3da6ce7512ff55
 Author: tb <tb@openbsd.org>
 Date:   Sun Dec 18 12:53:18 2022 +0000
