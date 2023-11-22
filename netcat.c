@@ -1,4 +1,4 @@
-/* $OpenBSD: netcat.c,v 1.225 2023/01/04 12:53:38 deraadt Exp $ */
+/* $OpenBSD: netcat.c,v 1.226 2023/08/14 08:07:27 tb Exp $Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  * Copyright (c) 2015 Bob Beck.  All rights reserved.
@@ -1245,7 +1245,7 @@ delay_exit:
 			if (netinbufpos == BUFSIZE)
 				pfd[POLL_NETIN].events = 0;
 			/* handle telnet */
-			if (tflag)
+			if (pfd[POLL_NETIN].fd != -1 && tflag)
 				atelnet(pfd[POLL_NETIN].fd, netinbuf,
 				    netinbufpos);
 		}
@@ -1284,6 +1284,9 @@ drainbuf(int fd, unsigned char *buf, size_t *bufpos, int use_sendto,
 	ssize_t n, r;
 	ssize_t adjust;
 	unsigned char *lf = NULL;
+
+	if (fd == -1)
+		return -1;
 
 	if (oneline)
 		lf = memchr(buf, '\n', *bufpos);
@@ -1331,24 +1334,27 @@ fillbuf(int fd, unsigned char *buf, size_t *bufpos, int use_recvfrom)
 	size_t num = BUFSIZE - *bufpos;
 	ssize_t n;
 
-		if (use_recvfrom) {
-			clilen = sizeof cliaddr;
-			n = recvfrom(fd, buf + *bufpos, num, 0,
-			    (struct sockaddr *)&cliaddr, &clilen);
-			if (vflag && n >= 0 && (clilen != clilen_saved ||
-			    memcmp(&cliaddr_saved, &cliaddr, clilen))) {
-				    report_sock("Connection received from",
-					(struct sockaddr *)&cliaddr, clilen,
-					family == AF_UNIX ?
-					cliaddr.forunix.sun_path : NULL);
-				    clilen_saved = clilen;
-				    memcpy(&cliaddr_saved, &cliaddr, clilen);
-			    }
-		} else
-			n = read(fd, buf + *bufpos, num);
-		/* don't treat EAGAIN, EINTR as error */
-		if (n == -1 && (errno == EAGAIN || errno == EINTR))
-			n = -2;
+	if (fd == -1)
+		return -1;
+
+	if (use_recvfrom) {
+		clilen = sizeof cliaddr;
+		n = recvfrom(fd, buf + *bufpos, num, 0,
+		    (struct sockaddr *)&cliaddr, &clilen);
+		if (vflag && n >= 0 && (clilen != clilen_saved ||
+		    memcmp(&cliaddr_saved, &cliaddr, clilen))) {
+			    report_sock("Connection received from",
+				(struct sockaddr *)&cliaddr, clilen,
+				family == AF_UNIX ?
+				cliaddr.forunix.sun_path : NULL);
+			    clilen_saved = clilen;
+			    memcpy(&cliaddr_saved, &cliaddr, clilen);
+		    }
+	} else
+		n = read(fd, buf + *bufpos, num);
+	/* don't treat EAGAIN, EINTR as error */
+	if (n == -1 && (errno == EAGAIN || errno == EINTR))
+		n = -2;
 	if (n <= 0)
 		return n;
 	*bufpos += n;
