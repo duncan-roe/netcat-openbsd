@@ -32,7 +32,7 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
-#define NETCAT_VERSION "7.4-1a"
+#define NETCAT_VERSION "7.4-1"
 
 #define _GNU_SOURCE
 
@@ -1153,8 +1153,10 @@ delay_exit:
 		/* reading is possible after HUP */
 		if (pfd[POLL_STDIN].events & POLLIN &&
 		    pfd[POLL_STDIN].revents & POLLHUP &&
-		    !(pfd[POLL_STDIN].revents & POLLIN))
-			pfd[POLL_STDIN].fd = -1;
+		    !(pfd[POLL_STDIN].revents & POLLIN)) {
+			ret = 0;
+			goto stdin_hup;
+		}
 
 		if (pfd[POLL_NETIN].events & POLLIN &&
 		    pfd[POLL_NETIN].revents & POLLHUP &&
@@ -1185,6 +1187,7 @@ delay_exit:
 			ret = fillbuf(pfd[POLL_STDIN].fd, stdinbuf,
 			    &stdinbufpos, 0);
 			if (ret == 0 || ret == -1) {
+stdin_hup:
 				pfd[POLL_STDIN].fd = -1;
 				if (ret == 0 && qflag >= 0)
 					ctrld_seen = 1;
