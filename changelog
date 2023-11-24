@@ -1,4 +1,48 @@
-commit 365befed5f276325efabed59b64c529a42da4b1b
+commit 251def46872eb65b82d38895b3fc991ffda11ea5 (tag: 7.4-1)
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Fri Nov 24 16:16:42 2023 +1100
+
+    Stop hang after EOF from pipe
+
+    `nc -4 -q0 -u localhost 1042 <<<XXXX` would send XXXX but nc would not then
+    exit despite option `-q0`. Further investigation showed this would happen
+    whenever stdin was a pipe.
+
+    nc only reads from stdin when poll(2) returns POLLIN for fd0.
+
+    After nc reads the last characters from a pipe, poll() only returns
+    POLLHUP, rather than POLLIN|POLLHUP. So nc was not doing another read()
+    which would have returned zero bytes signalling EOF.
+
+    Make it look like that last read() was done.
+
+commit c9a384ba134d7b0f6d0872a215822f3780a6288d
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Thu Nov 23 09:37:52 2023 +1100
+
+    Manually merge OpenBSD 7.4 updates
+
+    Also outdent a block of code that was in 1 level too many
+
+    OpenBSD commit message was:
+
+	netcat: avoid issuing syscalls on fd -1
+
+	In case a socket error condition occurs, readwrite() invalidates the
+	corresponding fd. Later on, readwrite() may still issue a syscall on
+	it. Avoid that by adding a couple of checks for fd == -1.
+
+	Reported and fix suggested by Leah Neukirchen.
+	Fixes https://github.com/libressl/openbsd/issues/143
+
+	"looks right" deraadt
+
+    1 of the 4 code changes was already done (differently). Apply other 3.
+
+    This brings netcat.c up to CVS revision 1.226
+    (current, as of 2023-11-24).
+
+commit 365befed5f276325efabed59b64c529a42da4b1b (tag: 7.3-1)
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Mon May 22 14:16:26 2023 +1000
 
@@ -102,7 +146,7 @@ Date:   Tue Feb 14 14:00:04 2023 +1100
 
     KNF, mostly whitespace - no binary change on amd64
 
-commit d7dacb5533172bb360b2ab6d8ba68905ab482031
+commit d7dacb5533172bb360b2ab6d8ba68905ab482031 (tag: 7.2-2)
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Tue Dec 20 09:50:06 2022 +1100
 
@@ -126,6 +170,14 @@ Date:   Sun Dec 11 12:58:43 2022 +1100
     but couldn't respond because they had also stopped reading STDIN.
     The single-shotters now exit on network write error while multi-shot server
     makes it look like error never happened.
+
+commit e2b141f5deaf30626da0755ad4ab54df2a844aaa (tag: 7.2-1)
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sun Dec 11 14:22:37 2022 +1100
+
+    Update README.md
+
+    No longer have branches for OpenBSD revisions.
 
 commit 0ab8751ac22df156fd8ee657e02384f2b7fa3e38
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
@@ -221,7 +273,7 @@ Date:   Wed Mar 31 20:41:35 2021 +0000
 
     discussed with and tweaked by sthen
 
-commit b8c68eb8d76a5d482508ccbd4a3b51735db65009
+commit b8c68eb8d76a5d482508ccbd4a3b51735db65009 (tag: 1.217-1)
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Sat Apr 4 15:31:51 2020 +1100
 
