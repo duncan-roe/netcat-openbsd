@@ -32,7 +32,7 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
-#define NETCAT_VERSION "7.4-1"
+#define NETCAT_VERSION "7.4-2a"
 
 #define _GNU_SOURCE
 
@@ -45,6 +45,7 @@
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
 #include <arpa/telnet.h>
+#include <arpa/inet.h>
 #ifdef __linux__
 # include <linux/in6.h>
 #endif
@@ -1059,11 +1060,26 @@ local_listen(const char *host, const char *port, struct addrinfo hints)
 
 		len = sizeof(ss);
 		if (getsockname(s, (struct sockaddr *)&ss, &len) == -1)
-			err(1, "getsockname");
-		report_sock(uflag ? "Bound to" : "Listening on",
-		    (struct sockaddr *)&ss, len, NULL);
-	}
+		{
+			perror("getsockname");
+			goto nearly_finished;
+		}                  /* if (getsockname(...) == -1 */
 
+		/* Insert localhost address, IPv4||6 as appropriate */
+		if (family == AF_INET)
+		{
+			struct sockaddr_in *ss4 = (void *)&ss;
+			inet_pton(AF_INET, "127.0.0.1", &ss4->sin_addr);
+		}          /* if (family == AF_INET */
+		else
+		{
+			struct sockaddr_in6 *ss6 = (void *)&ss;
+			inet_pton(AF_INET6, "::1", &ss6->sin6_addr);
+		}          /* if (family == AF_INET else */
+	report_sock(uflag ? "Bound to" : "Listening on",
+	    (struct sockaddr *)&ss, len, NULL);
+	}
+nearly_finished:
 	freeaddrinfo(res0);
 
 	return s;
@@ -1766,13 +1782,11 @@ report_sock(const char *msg, const struct sockaddr *sa, socklen_t salen,
 
 	herr = getnameinfo(sa, salen, host, sizeof(host), port, sizeof(port),
 	    flags);
-	switch (herr) {
-	case 0:
-		break;
-	case EAI_SYSTEM:
-		err(1, "getnameinfo");
-	default:
-		errx(1, "getnameinfo: %s", gai_strerror(herr));
+	if (herr)
+	{
+		fprintf(stderr, "getnameinfo: %s\n",
+		    herr == EAI_SYSTEM ? strerror(errno) : gai_strerror(herr));
+		return;
 	}
 
 	fprintf(stderr, "%s %s %s\n", msg, host, port);
