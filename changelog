@@ -1,3 +1,15 @@
+commit 64ff80cac56f4db8c790370a3977837304850f90
+Author: Duncan Roe <duncan_roe@optusnet.com.au>
+Date:   Sat Jan 20 15:17:28 2024 +1100
+
+    Keep going on error getting verbose info
+
+    `nc -4 -k -l -q0 -p1042 -u -v` would exit with
+    "nc: getnameinfo: Temporary failure in name resolution".
+    That error is fixed now (reports "Bound to localhost 1042") but have audited
+    (no_return) calls to err() and errx() to not use them when getting info for
+    a verbose message.
+
 commit 251def46872eb65b82d38895b3fc991ffda11ea5 (tag: 7.4-1)
 Author: Duncan Roe <duncan_roe@optusnet.com.au>
 Date:   Fri Nov 24 16:16:42 2023 +1100
