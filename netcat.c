@@ -32,7 +32,7 @@
  * *Hobbit* <hobbit@avian.org>.
  */
 
-#define NETCAT_VERSION "7.4-2"
+#define NETCAT_VERSION "7.5-1a"
 
 #define _GNU_SOURCE
 
